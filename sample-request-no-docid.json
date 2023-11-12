@@ -1,0 +1,12 @@
+{
+    "commonEventObject": {
+      "hostApp": "DOCS",
+      "platform": "WEB"
+    },
+    "authorizationEventObject": {
+      "userOAuthToken": "ya29.REDACTED",
+      "systemIdToken": "eyREDACTED"
+    },
+    "docs": {
+    }
+}
