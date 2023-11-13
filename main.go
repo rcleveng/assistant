@@ -2,20 +2,23 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
 
+	"github.com/GoogleCloudPlatform/golang-samples/run/helloworld/apps"
+	"github.com/GoogleCloudPlatform/golang-samples/run/helloworld/cards"
 	"github.com/gorilla/mux"
 
 	"os"
-	"text/template"
 )
 
 func main() {
-	log.Print("starting server...")
+	cloudRunExecution := os.Getenv("CLOUD_RUN_EXECUTION")
+	log.Print("starting server: " + cloudRunExecution)
 	router := mux.NewRouter()
 
 	router.HandleFunc("/", handler).Methods(http.MethodPost, http.MethodGet)
@@ -25,7 +28,6 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("defaulting to port %s", port)
 	}
 
 	// Start HTTP server.
@@ -35,95 +37,103 @@ func main() {
 	}
 }
 
-func mainCard(w http.ResponseWriter, r *http.Request) string {
-	s := `
-	{
-		"sections": [
-		  {
-			"widgets": [
-			  {
-				"buttonList": {
-				  "buttons": [
-					{
-					  "text": "Button 1",
-					  "onClick": {
-						"action": {
-						  "function": "TODO",
-						  "parameters": []
-						}
-					  }
-					}
-				  ]
-				},
-				"horizontalAlignment": "END"
-			  }
-			]
-		  }
-		]
-	  }
-`
-	return s
-}
+func mainCard(w http.ResponseWriter, r *http.Request, event *apps.WorkspaceAppEvent) *cards.Card {
+	uri := fmt.Sprintf("%s/authorizeFile", getURI(r))
 
-type RenderActionOneCard struct {
-	Card string
+	sampleButton := &cards.Button{
+		Text: "Sample Button",
+		OnClick: &cards.OnClick{
+			Action: &cards.Action{
+				Function: uri,
+			},
+		},
+	}
+	card := &cards.Card{
+		// CardActions: []*cards.CardAction{},
+		// Header:      &cards.CardHeader{},
+		Name: "Sample Card",
+		Sections: []*cards.Section{{
+			Header: "",
+			Widgets: []*cards.WidgetMarkup{{
+				ButtonList:          &cards.ButtonList{Buttons: []*cards.Button{sampleButton}},
+				HorizontalAlignment: "CENTER",
+				// Image:      &cards.Image{},
+				// TextParagraph: &cards.TextParagraph{
+				// 	Text: "Hello World",
+				// },
+			}},
+		}},
+	}
+
+	switch event.CommonEventObject.HostApp {
+	case "DOCS":
+		if event.Docs.Id == nil {
+			// Need to auth
+			button := &cards.Button{
+				Text: "Authorize File",
+				OnClick: &cards.OnClick{
+					Action: &cards.Action{
+						Function: uri,
+					},
+				},
+			}
+			card.FixedFooter = &cards.CardFixedFooter{
+				PrimaryButton: button,
+			}
+		}
+	}
+
+	return card
 }
 
 func authFileHandler(w http.ResponseWriter, r *http.Request) {
-	if reqText, err := httputil.DumpRequest(r, true); err == nil {
-		log.Default().Println(string(reqText))
-	}
-	text := `
-	{
-		renderActions: {
-		  hostAppAction: {
-			editorAction: {
-			  requestFileScopeForActiveDocument: {},
-			 },
-		  },
+	response := cards.SubmitFormResponse{
+		RenderAction: &cards.RenderActions{
+			HostAppAction: &cards.HostAppAction{
+				EditorAction: &cards.EditorClientAction{
+					RequestFileScopeForActiveDocument: cards.RequestFileScopeForActiveDocument{},
+				},
+			},
 		},
-	  }	`
-	fmt.Fprintln(w, text)
+	}
+
+	b := new(bytes.Buffer)
+	json.NewEncoder(b).Encode(response)
+	log.Default().Println("Responrese: " + b.String())
+	fmt.Fprintln(w, b.String())
+}
+
+func getURI(r *http.Request) string {
+	proto := "http"
+	if protos, ok := r.Header["X-Forwarded-Proto"]; ok {
+		proto = protos[0]
+	}
+	return fmt.Sprintf("%s://%s", proto, r.Host)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
 
-	uri := r.RequestURI
+	uri := getURI(r)
 	log.Default().Println("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
 		log.Default().Println(string(reqText))
 	}
 
-	var body map[string]interface{}
-	json.NewDecoder(r.Body).Decode(&body)
+	event := apps.WorkspaceAppEvent{}
+	json.NewDecoder(r.Body).Decode(&event)
 
-	if d, ok := body["foo"]; ok {
-		docs := d.(map[string]interface{})
-		if len(docs) == 0 {
-
-		}
+	mc := mainCard(w, r, &event)
+	action := cards.RenderActions{
+		Action: &cards.RenderActionsAction{
+			Navigations: &[]cards.Navigation{
+				{PushCard: mc}}},
 	}
 
-	text := `
-	{
-        action: {
-            navigations: [{
-                pushCard: {{ .Card}}
-            }]
-        }
-    }
-	`
-	t, err := template.New("main").Parse(text)
+	b := new(bytes.Buffer)
+	enc := json.NewEncoder(b)
+	enc.SetIndent("", "  ")
+	enc.Encode(action)
+	log.Default().Println("Response: " + b.String())
 
-	if err != nil {
-		panic(err)
-	}
-
-	mainCard := mainCard(w, r)
-	ra := RenderActionOneCard{mainCard}
-	err = t.Execute(w, ra)
-	if err != nil {
-		panic(err)
-	}
-
+	json.NewEncoder(w).Encode(action)
 }

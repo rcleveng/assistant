@@ -1,5 +1,7 @@
 package cards
 
+// https://developers.google.com/workspace/add-ons/reference/rpc/google.apps.card.v1
+
 type Icon struct {
 	AltText   string `json:"altText,omitempty"`
 	ImageType string `json:"imageType,omitempty"` // SQUARE or CIRCLE
@@ -172,19 +174,32 @@ type TextParagraph struct {
 	Text string `json:"text,omitempty"`
 }
 
-type WidgetMarkup struct {
-	// Buttons: A list of buttons. Buttons is also `oneof data` and only one
-	// of these fields should be set.
+type ButtonList struct {
+	// Buttons: An array of buttons.
 	Buttons []*Button `json:"buttons,omitempty"`
+}
+
+type WidgetMarkup struct {
+	HorizontalAlignment string `json:"horizontalAlignment,omitempty"`
+
+	// The following are all a oneof:
+	ButtonList *ButtonList `json:"buttonList,omitempty"`
+
+	/*
+		SelectionInput *GoogleAppsCardV1SelectionInput `json:"selectionInput,omitempty"`
+		TextInput *GoogleAppsCardV1TextInput `json:"textInput,omitempty"`
+	*/
 
 	// Image: Display an image in this widget.
 	Image *Image `json:"image,omitempty"`
 
-	// KeyValue: Display a key value item in this widget.
-	KeyValue *KeyValue `json:"keyValue,omitempty"`
-
 	// TextParagraph: Display a text paragraph in this widget.
 	TextParagraph *TextParagraph `json:"textParagraph,omitempty"`
+}
+
+type CardFixedFooter struct {
+	PrimaryButton   *Button `json:"primaryButton,omitempty"`
+	SecondaryButton *Button `json:"secondaryButton,omitempty"`
 }
 
 type Card struct {
@@ -196,6 +211,8 @@ type Card struct {
 
 	// Sections: Sections are separated by a line divider.
 	Sections []*Section `json:"sections,omitempty"`
+
+	FixedFooter *CardFixedFooter `json:"fixedFooter,omitempty"`
 }
 
 type OnClick struct {
@@ -226,4 +243,72 @@ type Button struct {
 	OnClick  *OnClick `json:"onClick,omitempty"`
 	Disabled bool     `json:"disabled,omitempty"`
 	AltText  string   `json:"altText,omitempty"`
+}
+
+type HostAppAction struct {
+	EditorAction *EditorClientAction `json:"editorAction,omitempty"`
+}
+
+type EditorClientAction struct {
+	RequestFileScopeForActiveDocument RequestFileScopeForActiveDocument `json:"requestFileScopeForActiveDocument,omitempty"`
+}
+
+type RequestFileScopeForActiveDocument struct{}
+
+type SubmitFormResponse struct {
+	RenderAction *RenderActions `json:"renderActions,omitempty"`
+	StateChanged *bool          `json:"stateChanged,omitempty"`
+}
+
+type RenderActions struct {
+	HostAppAction *HostAppAction       `json:"hostAppAction,omitempty"`
+	Action        *RenderActionsAction `json:"action,omitempty"`
+	Schema        string               `json:"schema,omitempty"` // unused
+}
+
+// TODO implement me
+type RenderActionsAction struct {
+	Navigations  *[]Navigation `json:"navigations,omitempty"`
+	Link         *OpenLink     `json:"link,omitempty"`
+	Notification *Notification `json:"notification,omitempty"`
+
+	//LinkPreview *LinkPreview `json:"linkPreview,omitempty"`
+	/*
+	   navigations[]
+	   Navigation
+
+	   Push, pop, or update displayed cards.
+
+	   link
+	   OpenLink
+
+	   Immediately open the target link in a new tab or a pop-up.
+
+	   notification
+	   Notification
+
+	   Display a notification to the end-user.
+
+	   linkPreview
+	   LinkPreview
+
+	   Display a link preview to the end user.*/
+}
+
+type Notification struct {
+	Text string `json:"text,omitempty"`
+}
+
+// Card action that manipulates the card stack.
+// Can only have one of the following
+type Navigation struct {
+	PopToRoot  *bool   `json:"popToRoot,omitempty"`
+	Pop        *bool   `json:"pop,omitempty"`
+	PopToCard  *string `json:"popToCard,omitempty"`
+	PushCard   *Card   `json:"pushCard,omitempty"`
+	UpdateCard *Card   `json:"updateCard,omitempty"`
+}
+
+type RenderCard struct {
+	Card *Card `json:"card,omitempty"`
 }
