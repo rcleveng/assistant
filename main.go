@@ -23,6 +23,7 @@ func main() {
 
 	router.HandleFunc("/", handler).Methods(http.MethodPost, http.MethodGet)
 	router.HandleFunc("/authorizeFile", authFileHandler).Methods(http.MethodPost, http.MethodGet)
+	router.HandleFunc("/chat", chatHandler).Methods(http.MethodPost, http.MethodGet)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
@@ -65,6 +66,9 @@ func mainCard(w http.ResponseWriter, r *http.Request, event *apps.WorkspaceAppEv
 		}},
 	}
 
+	if event == nil || event.CommonEventObject == nil {
+		return card
+	}
 	switch event.CommonEventObject.HostApp {
 	case "DOCS":
 		if event.Docs.Id == nil {
@@ -136,4 +140,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	log.Default().Println("Response: " + b.String())
 
 	json.NewEncoder(w).Encode(action)
+}
+
+// CHAT
+
+func chatHandler(w http.ResponseWriter, r *http.Request) {
+	uri := getURI(r)
+	log.Default().Println("URI: " + uri)
+	if reqText, err := httputil.DumpRequest(r, true); err == nil {
+		log.Default().Println(string(reqText))
+	}
+
+	fmt.Fprintln(w, "{}")
 }
