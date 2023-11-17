@@ -4,7 +4,10 @@ go 1.20
 
 require github.com/gorilla/mux v1.8.1
 
-require github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+require (
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+	github.com/google/uuid v1.4.0 // indirect
+)
 
 require (
 	cloud.google.com/go/ai v0.1.4 // indirect
@@ -27,7 +30,7 @@ require (
 	golang.org/x/sys v0.14.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.4.0 // indirect
-	google.golang.org/api v0.150.0 // indirect
+	google.golang.org/api v0.151.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
