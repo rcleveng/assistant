@@ -3,16 +3,19 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 
-	"github.com/GoogleCloudPlatform/golang-samples/run/helloworld/apps"
-	"github.com/GoogleCloudPlatform/golang-samples/run/helloworld/cards"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gorilla/mux"
+	"github.com/rcleveng/assistant/apps"
+	"github.com/rcleveng/assistant/cards"
 	"github.com/tidwall/gjson"
 
 	"os"
@@ -151,6 +154,36 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	log.Default().Println("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
 		log.Default().Println(string(reqText))
+	}
+
+	authHeader := r.Header["Authorization"]
+	if len(authHeader) > 0 {
+		jwtURL := "https://www.googleapis.com/service_accounts/v1/jwk/"
+		chatIssuer := "chat@system.gserviceaccount.com"
+		tokenString := strings.Split(authHeader[0], " ")[1]
+		audience := "1007744422436"
+		context := context.Background()
+		keySet := oidc.NewRemoteKeySet(context, jwtURL+chatIssuer)
+		config := &oidc.Config{
+			SkipClientIDCheck: true,
+			ClientID:          audience,
+		}
+		verifier := oidc.NewVerifier(chatIssuer, keySet, config)
+		payload, err := verifier.Verify(context, tokenString)
+		if err != nil {
+			panic(err)
+		}
+		var claims struct {
+			Aud string `json:"aud"`
+			Iss string `json:"iss"`
+		}
+		if err := payload.Claims(&claims); err != nil {
+			panic(err)
+		}
+		fmt.Printf("\n\nAud: %s; %v\n\n", claims.Aud, claims.Iss)
+	} else {
+		fmt.Println("No Auth Header!")
+		// TODO return here.
 	}
 
 	bytes, err := io.ReadAll(r.Body)

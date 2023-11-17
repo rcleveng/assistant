@@ -1,13 +1,16 @@
-module github.com/GoogleCloudPlatform/golang-samples/run/helloworld
+module github.com/rcleveng/assistant
 
 go 1.20
 
 require github.com/gorilla/mux v1.8.1
 
+require github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+
 require (
 	cloud.google.com/go/ai v0.1.4 // indirect
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	github.com/coreos/go-oidc/v3 v3.7.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
