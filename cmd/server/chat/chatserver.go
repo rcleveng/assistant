@@ -2,35 +2,21 @@
 package chat
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/tidwall/gjson"
+	"github.com/rcleveng/assistant/server"
 
 	pb "google.golang.org/api/chat/v1"
 )
 
 const chatAppProject = "1007744422436"
-
-func getURI(r *http.Request) string {
-	proto := "http"
-	host := r.Host
-	if protos, ok := r.Header["X-Forwarded-Proto"]; ok {
-		proto = protos[0]
-	}
-	if hosts, ok := r.Header["X-Forwarded-Host"]; ok {
-		host = hosts[0]
-	}
-	return fmt.Sprintf("%s://%s", proto, host)
-}
 
 func validateChatToken(tokenString string, chatAppProject string) error {
 	context := context.Background()
@@ -68,7 +54,7 @@ func validateChatToken(tokenString string, chatAppProject string) error {
 // CHAT
 
 func ChatHandler(w http.ResponseWriter, r *http.Request) {
-	uri := getURI(r)
+	uri := server.GetPublicEndpoint(r)
 	log.Default().Println("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
 		log.Default().Println(string(reqText))
@@ -87,16 +73,18 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		fmt.Fprintln(w, "Error getting name!")
-		return
-	}
-	requestJson := string(bodyBytes)
-	name := gjson.Get(requestJson, "message.sender.displayName")
-	originalText := gjson.Get(requestJson, "message.text")
+	req := pb.DeprecatedEvent{}
+	json.NewDecoder(r.Body).Decode(&req)
+	fmt.Printf("Decoded Message: %#v", req)
 
-	text := fmt.Sprintf(`Hello %s, you said %s`, name, originalText)
+	name := req.Message.Sender.DisplayName
+	_, originalText, _ := strings.Cut(req.Message.Text, " ")
+
+	text, err := server.OneShotSendToLLM(originalText)
+	if err != nil {
+		log.Default().Println("Error: " + err.Error())
+		text = fmt.Sprintf(`Error getting LLM, so: Hello '%s', you said '%s'`, name, originalText)
+	}
 
 	button := pb.GoogleAppsCardV1Button{
 		Text: "Sample Button",
@@ -134,15 +122,5 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		CardsV2: []*pb.CardWithId{card},
 	}
 
-	encodeAndLogResponse(&resp, w)
-}
-
-func encodeAndLogResponse(resp json.Marshaler, w http.ResponseWriter) error {
-	b := new(bytes.Buffer)
-	enc := json.NewEncoder(b)
-	enc.SetIndent("", "  ")
-	enc.Encode(resp)
-	log.Default().Println("Response: " + b.String())
-	w.Write(b.Bytes())
-	return nil
+	server.EncodeAndLogResponse(&resp, w)
 }

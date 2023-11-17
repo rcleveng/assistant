@@ -2,7 +2,6 @@
 package docs
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/rcleveng/assistant/apps"
 	"github.com/rcleveng/assistant/cards"
+	"github.com/rcleveng/assistant/server"
 )
 
 func mainCard(w http.ResponseWriter, r *http.Request, event *apps.WorkspaceAppEvent) *cards.Card {
@@ -76,10 +76,7 @@ func AuthFileHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(response)
-	log.Default().Println("Responrese: " + b.String())
-	fmt.Fprintln(w, b.String())
+	server.EncodeAndLogResponse(&response, w)
 }
 
 func getURI(r *http.Request) string {
@@ -108,11 +105,5 @@ func DocsHandler(w http.ResponseWriter, r *http.Request) {
 				{PushCard: mc}}},
 	}
 
-	b := new(bytes.Buffer)
-	enc := json.NewEncoder(b)
-	enc.SetIndent("", "  ")
-	enc.Encode(action)
-	log.Default().Println("Response: " + b.String())
-
-	json.NewEncoder(w).Encode(action)
+	server.EncodeAndLogResponse(&action, w)
 }

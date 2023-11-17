@@ -1,5 +1,7 @@
 package cards
 
+import "encoding/json"
+
 // https://developers.google.com/workspace/add-ons/reference/rpc/google.apps.card.v1
 
 type Icon struct {
@@ -260,10 +262,22 @@ type SubmitFormResponse struct {
 	StateChanged *bool          `json:"stateChanged,omitempty"`
 }
 
+func (s *SubmitFormResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod SubmitFormResponse
+	raw := NoMethod(*s)
+	return json.Marshal(raw)
+}
+
 type RenderActions struct {
 	HostAppAction *HostAppAction       `json:"hostAppAction,omitempty"`
 	Action        *RenderActionsAction `json:"action,omitempty"`
 	Schema        string               `json:"schema,omitempty"` // unused
+}
+
+func (s *RenderActions) MarshalJSON() ([]byte, error) {
+	type NoMethod RenderActions
+	raw := NoMethod(*s)
+	return json.Marshal(raw)
 }
 
 // TODO implement me
