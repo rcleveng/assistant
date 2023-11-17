@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -12,6 +13,7 @@ import (
 	"github.com/GoogleCloudPlatform/golang-samples/run/helloworld/apps"
 	"github.com/GoogleCloudPlatform/golang-samples/run/helloworld/cards"
 	"github.com/gorilla/mux"
+	"github.com/tidwall/gjson"
 
 	"os"
 )
@@ -151,5 +153,17 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 		log.Default().Println(string(reqText))
 	}
 
-	fmt.Fprintln(w, "{}")
+	bytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		fmt.Fprintln(w, "Error getting name!")
+		return
+	}
+	json := string(bytes)
+	name := gjson.Get(json, "message.sender.displayName")
+	text := gjson.Get(json, "message.text")
+	fmt.Fprintf(w, `
+{
+	text: "Hello %s, you said; %s"
+}`, name, text)
+
 }
