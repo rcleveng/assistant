@@ -10,6 +10,11 @@ import (
 	"google.golang.org/api/option"
 )
 
+type LlmClient interface {
+	Call(ctx context.Context, prompt string) (string, error)
+	Close() error
+}
+
 type PalmLLMClient struct {
 	c   *generativelanguage.TextClient
 	ctx context.Context
@@ -19,7 +24,7 @@ func (c *PalmLLMClient) Close() error {
 	return c.c.Close()
 }
 
-func (c *PalmLLMClient) Call(prompt string) (string, error) {
+func (c *PalmLLMClient) Call(ctx context.Context, prompt string) (string, error) {
 	req := &pb.GenerateTextRequest{
 		Model: "models/text-bison-001",
 		Prompt: &pb.TextPrompt{
@@ -27,7 +32,7 @@ func (c *PalmLLMClient) Call(prompt string) (string, error) {
 		},
 	}
 
-	resp, err := c.c.GenerateText(c.ctx, req)
+	resp, err := c.c.GenerateText(ctx, req)
 	if err != nil {
 		return "", err
 	}
@@ -57,13 +62,12 @@ func NewPalmLLMClient(ctx context.Context) (*PalmLLMClient, error) {
 	}, nil
 }
 
-func OneShotSendToLLM(prompt string) (string, error) {
-	ctx := context.Background()
+func OneShotSendToLLM(ctx context.Context, prompt string) (string, error) {
 	c, err := NewPalmLLMClient(ctx)
 	if err != nil {
 		return "", err
 	}
 	defer c.Close()
 
-	return c.Call(prompt)
+	return c.Call(ctx, prompt)
 }

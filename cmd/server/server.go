@@ -17,9 +17,12 @@ func main() {
 	log.Print("starting server: " + cloudRunExecution)
 	router := mux.NewRouter()
 
+	chatHandler := chat.NewChatHandler()
+	defer chatHandler.Close()
+
 	router.HandleFunc("/docs", docs.DocsHandler).Methods(http.MethodPost, http.MethodGet)
 	router.HandleFunc("/authorizeFile", docs.AuthFileHandler).Methods(http.MethodPost, http.MethodGet)
-	router.HandleFunc("/chat", chat.ChatHandler).Methods(http.MethodPost, http.MethodGet)
+	router.HandleFunc("/chat", chatHandler.HandleRequest).Methods(http.MethodPost, http.MethodGet)
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")

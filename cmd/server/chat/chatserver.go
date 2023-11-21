@@ -17,19 +17,59 @@ import (
 )
 
 const chatAppProject = "1007744422436"
+const chatIssuer = "chat@system.gserviceaccount.com"
+const jwtURL = "https://www.googleapis.com/service_accounts/v1/jwk/"
 
-func validateChatToken(tokenString string, chatAppProject string) error {
+type ChatHandler struct {
+	verifier *oidc.IDTokenVerifier
+	llm      server.LlmClient
+}
+
+type TestLlmClient struct {
+	Opened     bool
+	LastPrompt string
+}
+
+func (c *TestLlmClient) Call(ctx context.Context, prompt string) (string, error) {
+	c.LastPrompt = prompt
+	return prompt, nil
+}
+
+func (c *TestLlmClient) Close() error {
+	c.Opened = false
+	return nil
+}
+
+func NewChatHandler() *ChatHandler {
 	context := context.Background()
+	config := &oidc.Config{
+		SkipClientIDCheck: true,
+		ClientID:          chatAppProject,
+	}
+	ks := oidc.NewRemoteKeySet(context, jwtURL+chatIssuer)
+	verifier := oidc.NewVerifier(chatIssuer, ks, config)
 
-	jwtURL := "https://www.googleapis.com/service_accounts/v1/jwk/"
-	chatIssuer := "chat@system.gserviceaccount.com"
-	keySet := oidc.NewRemoteKeySet(context, jwtURL+chatIssuer)
+	llm, err := server.NewPalmLLMClient(context)
+	if err != nil {
+		panic(err)
+	}
+	return &ChatHandler{verifier, llm}
+}
+
+func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatHandler {
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
 		ClientID:          chatAppProject,
 	}
 	verifier := oidc.NewVerifier(chatIssuer, keySet, config)
-	payload, err := verifier.Verify(context, tokenString)
+	return &ChatHandler{verifier, llm}
+}
+
+// Validate the Chat Token
+
+func (handler *ChatHandler) validateChatToken(context context.Context, tokenString string, chatAppProject string) error {
+
+	payload, err := handler.verifier.Verify(context, tokenString)
 	if err != nil {
 		return err
 	}
@@ -53,16 +93,17 @@ func validateChatToken(tokenString string, chatAppProject string) error {
 
 // CHAT
 
-func ChatHandler(w http.ResponseWriter, r *http.Request) {
+func (handler *ChatHandler) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	uri := server.GetPublicEndpoint(r)
 	log.Default().Println("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
 		log.Default().Println(string(reqText))
 	}
+	ctx := r.Context()
 
 	if authHeader, ok := r.Header["Authorization"]; ok {
 		token := strings.Split(authHeader[0], " ")[1]
-		if err := validateChatToken(token, chatAppProject); err != nil {
+		if err := handler.validateChatToken(ctx, token, chatAppProject); err != nil {
 			fmt.Printf("Error validating Token: %v\n", err)
 			fmt.Fprintf(w, "Error validating Token: %v\n", err)
 			return
@@ -77,10 +118,15 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&req)
 	fmt.Printf("Decoded Message: %#v", req)
 
+	if req.Message == nil || req.Message.Sender == nil {
+		fmt.Println("No Message or Sender")
+		return
+	}
+
 	name := req.Message.Sender.DisplayName
 	_, originalText, _ := strings.Cut(req.Message.Text, " ")
 
-	text, err := server.OneShotSendToLLM(originalText)
+	text, err := handler.llm.Call(ctx, originalText)
 	if err != nil {
 		log.Default().Println("Error: " + err.Error())
 		text = fmt.Sprintf(`Error getting LLM, so: Hello '%s', you said '%s'`, name, originalText)
@@ -123,4 +169,10 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	server.EncodeAndLogResponse(&resp, w)
+}
+
+func (handler *ChatHandler) Close() {
+	if handler.llm != nil {
+		handler.llm.Close()
+	}
 }
