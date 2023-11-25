@@ -2,6 +2,7 @@
 package chat
 
 import (
+	"context"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -56,6 +57,33 @@ func (s *signingKey) sign(t testing.TB, payload []byte) string {
 		t.Fatal(err)
 	}
 	return data
+}
+
+// TestLlmClient - LLM Client for testing
+type TestLlmClient struct {
+	Opened      bool
+	LastPrompt  string
+	PromptCount int
+}
+
+func (c *TestLlmClient) Call(ctx context.Context, prompt string) (string, error) {
+	c.LastPrompt = prompt
+	c.PromptCount++
+	return prompt, nil
+}
+
+func (c *TestLlmClient) Close() error {
+	c.Opened = false
+	return nil
+}
+
+func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatHandler {
+	config := &oidc.Config{
+		SkipClientIDCheck: true,
+		ClientID:          chatAppProject,
+	}
+	verifier := oidc.NewVerifier(chatIssuer, keySet, config)
+	return &ChatHandler{verifier, llm}
 }
 
 func createIdToken(t *testing.T, key *signingKey) string {

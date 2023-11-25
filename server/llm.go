@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
 
 	generativelanguage "cloud.google.com/go/ai/generativelanguage/apiv1beta2"
 	pb "cloud.google.com/go/ai/generativelanguage/apiv1beta2/generativelanguagepb"
+	"github.com/rcleveng/assistant/server/env"
 	"google.golang.org/api/option"
 )
 
@@ -46,12 +46,16 @@ func (c *PalmLLMClient) Call(ctx context.Context, prompt string) (string, error)
 }
 
 func NewPalmLLMClient(ctx context.Context) (*PalmLLMClient, error) {
-	// This snippet has been automatically generated and should be regarded as a code template only.
-	// It will require modifications to work:
-	// - It may require correct/in-range values for request initialization.
-	// - It may require specifying regional endpoints when creating the service client as shown in:
-	//   https://pkg.go.dev/cloud.google.com/go#hdr-Client_Options
-	apiKey := option.WithAPIKey(os.Getenv("PALM_KEY"))
+	env, ok := env.FromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("unable to find serverenv on context")
+	}
+	palmKey, err := env.PalmApiKey()
+	if err != nil {
+		return nil, fmt.Errorf("error getting PALM API key")
+	}
+
+	apiKey := option.WithAPIKey(palmKey)
 	c, err := generativelanguage.NewTextRESTClient(ctx, apiKey)
 	if err != nil {
 		return nil, err

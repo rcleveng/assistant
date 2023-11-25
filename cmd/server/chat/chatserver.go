@@ -25,43 +25,18 @@ type ChatHandler struct {
 	llm      server.LlmClient
 }
 
-type TestLlmClient struct {
-	Opened     bool
-	LastPrompt string
-}
-
-func (c *TestLlmClient) Call(ctx context.Context, prompt string) (string, error) {
-	c.LastPrompt = prompt
-	return prompt, nil
-}
-
-func (c *TestLlmClient) Close() error {
-	c.Opened = false
-	return nil
-}
-
-func NewChatHandler() *ChatHandler {
-	context := context.Background()
+func NewChatHandler(ctx context.Context) *ChatHandler {
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
 		ClientID:          chatAppProject,
 	}
-	ks := oidc.NewRemoteKeySet(context, jwtURL+chatIssuer)
+	ks := oidc.NewRemoteKeySet(ctx, jwtURL+chatIssuer)
 	verifier := oidc.NewVerifier(chatIssuer, ks, config)
 
-	llm, err := server.NewPalmLLMClient(context)
+	llm, err := server.NewPalmLLMClient(ctx)
 	if err != nil {
 		panic(err)
 	}
-	return &ChatHandler{verifier, llm}
-}
-
-func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatHandler {
-	config := &oidc.Config{
-		SkipClientIDCheck: true,
-		ClientID:          chatAppProject,
-	}
-	verifier := oidc.NewVerifier(chatIssuer, keySet, config)
 	return &ChatHandler{verifier, llm}
 }
 
