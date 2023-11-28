@@ -4,10 +4,6 @@ import (
 	"context"
 )
 
-type Embedding struct {
-	Value []float32
-}
-
 type LlmClient interface {
 	GenerateText(ctx context.Context, prompt string) (string, error)
 	EmbedText(ctx context.Context, text string) ([]float32, error)
