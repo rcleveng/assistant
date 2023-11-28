@@ -41,11 +41,36 @@ func (c *PalmLLMClient) GenerateText(ctx context.Context, prompt string) (string
 }
 
 func (c *PalmLLMClient) EmbedText(ctx context.Context, text string) ([]float32, error) {
-	return nil, nil
+	req := &pb.EmbedTextRequest{
+		Model: "models/embedding-gecko-001",
+		Text:  text,
+	}
+
+	resp, err := c.c.EmbedText(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	emb := resp.GetEmbedding().GetValue()
+	return emb, nil
 }
 
+// TODO - use the batchEmbedText endpoint that's part of v1beta3 once available in the
+// client libraries or just give up on the client libraries and call the rest apis
+// manually.
 func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, text []string) ([][]float32, error) {
-	return nil, nil
+	emb := make([][]float32, len(text))
+
+	for _, t := range text {
+		ce, err := c.EmbedText(ctx, t)
+		if err == nil {
+			emb = append(emb, ce)
+		} else {
+			emb = append(emb, []float32{})
+		}
+	}
+
+	return emb, nil
 }
 
 func NewPalmLLMClient(ctx context.Context, environment *env.ServerEnvironment) (*PalmLLMClient, error) {

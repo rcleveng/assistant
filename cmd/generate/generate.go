@@ -21,14 +21,15 @@ func main() {
 	}
 
 	ctx := context.Background()
-	llmclient, err := llm.NewPalmLLMClient(ctx, env)
+	client, err := llm.NewPalmLLMClient(ctx, env)
 	if err != nil {
 		fmt.Printf("ERROR: %v\n\n", err)
 		os.Exit(2)
 	}
+	defer client.Close()
 
 	for _, arg := range args {
-		response, err := llmclient.GenerateText(ctx, arg)
+		response, err := client.GenerateText(ctx, arg)
 		if err != nil {
 			fmt.Printf("ERROR: %v\n\n", err)
 			continue
