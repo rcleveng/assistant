@@ -14,6 +14,8 @@ import (
 	"os"
 )
 
+// TODO - This may go away if we don't need ServerEnvironment per-request since the
+// handlers have it already.
 func addRequestEnvironment(next http.Handler, environment *env.ServerEnvironment) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := env.NewContext(r.Context(), environment)
@@ -33,7 +35,7 @@ func main() {
 	}
 	ctx := env.NewContext(context.Background(), environment)
 
-	chatHandler := chat.NewChatHandler(ctx)
+	chatHandler := chat.NewChatHandler(ctx, environment)
 	defer chatHandler.Close()
 
 	router.HandleFunc("/docs", docs.DocsHandler).Methods(http.MethodPost, http.MethodGet)

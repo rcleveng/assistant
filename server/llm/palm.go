@@ -1,4 +1,4 @@
-package server
+package llm
 
 import (
 	"context"
@@ -10,21 +10,16 @@ import (
 	"google.golang.org/api/option"
 )
 
-type LlmClient interface {
-	Call(ctx context.Context, prompt string) (string, error)
-	Close() error
-}
-
 type PalmLLMClient struct {
-	c   *generativelanguage.TextClient
-	ctx context.Context
+	c           *generativelanguage.TextClient
+	environment *env.ServerEnvironment
 }
 
 func (c *PalmLLMClient) Close() error {
 	return c.c.Close()
 }
 
-func (c *PalmLLMClient) Call(ctx context.Context, prompt string) (string, error) {
+func (c *PalmLLMClient) GenerateText(ctx context.Context, prompt string) (string, error) {
 	req := &pb.GenerateTextRequest{
 		Model: "models/text-bison-001",
 		Prompt: &pb.TextPrompt{
@@ -39,39 +34,28 @@ func (c *PalmLLMClient) Call(ctx context.Context, prompt string) (string, error)
 
 	if len(resp.Candidates) > 0 {
 		s := resp.Candidates[0].Output
-		fmt.Println("LLM Response: " + s)
+		//fmt.Println("LLM Response: " + s)
 		return s, nil
 	}
 	return "", fmt.Errorf("no candidate response, just %#v", resp)
 }
 
-func NewPalmLLMClient(ctx context.Context) (*PalmLLMClient, error) {
-	env, ok := env.FromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("unable to find serverenv on context")
-	}
-	palmKey, err := env.PalmApiKey()
-	if err != nil {
-		return nil, fmt.Errorf("error getting PALM API key")
-	}
+func (c *PalmLLMClient) EmbedText(ctx context.Context, text string) ([]float32, error) {
+	return nil, nil
+}
 
-	apiKey := option.WithAPIKey(palmKey)
+func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, text []string) ([][]float32, error) {
+	return nil, nil
+}
+
+func NewPalmLLMClient(ctx context.Context, environment *env.ServerEnvironment) (*PalmLLMClient, error) {
+	apiKey := option.WithAPIKey(environment.PalmApiKey)
 	c, err := generativelanguage.NewTextRESTClient(ctx, apiKey)
 	if err != nil {
 		return nil, err
 	}
 	return &PalmLLMClient{
-		c:   c,
-		ctx: ctx,
+		c:           c,
+		environment: environment,
 	}, nil
-}
-
-func OneShotSendToLLM(ctx context.Context, prompt string) (string, error) {
-	c, err := NewPalmLLMClient(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer c.Close()
-
-	return c.Call(ctx, prompt)
 }

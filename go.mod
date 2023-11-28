@@ -7,7 +7,22 @@ require (
 	github.com/gorilla/mux v1.8.1
 )
 
-require github.com/google/uuid v1.4.0 // indirect
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dlclark/regexp2 v1.10.0 // indirect
+	github.com/google/uuid v1.4.0 // indirect
+	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/tmc/langchaingo v0.0.0-20231125195403-51a3a0a0f54a // indirect
+	gitlab.com/golang-commonmark/html v0.0.0-20191124015941-a22733972181 // indirect
+	gitlab.com/golang-commonmark/linkify v0.0.0-20200225224916-64bca66f6ad3 // indirect
+	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a // indirect
+	gitlab.com/golang-commonmark/mdurl v0.0.0-20191124015652-932350d1cb84 // indirect
+	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
 
 require (
 	cloud.google.com/go/ai v0.1.4

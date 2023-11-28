@@ -13,10 +13,14 @@ const (
 	TEST
 	STAGING
 	PRODUCTION_CLOUDRUN
+	COMMANDLINE
 )
 
 type ServerEnvironment struct {
-	PalmApiKey           func() (string, error)
+	PalmApiKey           string
+	DatabaseConnection   string
+	DatabaseUserName     string
+	DatabasePassword     string
 	ExecutionEnvironment ExecutionEnvironment
 }
 
@@ -28,9 +32,10 @@ func NewServerEnvironment(env ExecutionEnvironment) (*ServerEnvironment, error) 
 	switch env {
 	case GOTEST:
 		return &ServerEnvironment{
-			PalmApiKey: func() (string, error) {
-				return os.Getenv("PALM_KEY"), nil
-			},
+			PalmApiKey:           os.Getenv("PALM_KEY"),
+			DatabaseConnection:   os.Getenv("PG_URL"),
+			DatabaseUserName:     os.Getenv("PG_USERNAME"),
+			DatabasePassword:     os.Getenv("PG_PASSWORD"),
 			ExecutionEnvironment: env,
 		}, nil
 	default:

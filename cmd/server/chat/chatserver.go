@@ -12,6 +12,8 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/rcleveng/assistant/server"
+	"github.com/rcleveng/assistant/server/env"
+	"github.com/rcleveng/assistant/server/llm"
 
 	pb "google.golang.org/api/chat/v1"
 )
@@ -22,10 +24,10 @@ const jwtURL = "https://www.googleapis.com/service_accounts/v1/jwk/"
 
 type ChatHandler struct {
 	verifier *oidc.IDTokenVerifier
-	llm      server.LlmClient
+	llm      llm.LlmClient
 }
 
-func NewChatHandler(ctx context.Context) *ChatHandler {
+func NewChatHandler(ctx context.Context, environment *env.ServerEnvironment) *ChatHandler {
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
 		ClientID:          chatAppProject,
@@ -33,7 +35,7 @@ func NewChatHandler(ctx context.Context) *ChatHandler {
 	ks := oidc.NewRemoteKeySet(ctx, jwtURL+chatIssuer)
 	verifier := oidc.NewVerifier(chatIssuer, ks, config)
 
-	llm, err := server.NewPalmLLMClient(ctx)
+	llm, err := llm.NewPalmLLMClient(ctx, environment)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +103,7 @@ func (handler *ChatHandler) HandleRequest(w http.ResponseWriter, r *http.Request
 	name := req.Message.Sender.DisplayName
 	_, originalText, _ := strings.Cut(req.Message.Text, " ")
 
-	text, err := handler.llm.Call(ctx, originalText)
+	text, err := handler.llm.GenerateText(ctx, originalText)
 	if err != nil {
 		log.Default().Println("Error: " + err.Error())
 		text = fmt.Sprintf(`Error getting LLM, so: Hello '%s', you said '%s'`, name, originalText)

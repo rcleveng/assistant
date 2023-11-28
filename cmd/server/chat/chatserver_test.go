@@ -1,4 +1,3 @@
-// Sample run-helloworld is a minimal Cloud Run service.
 package chat
 
 import (
@@ -66,7 +65,7 @@ type TestLlmClient struct {
 	PromptCount int
 }
 
-func (c *TestLlmClient) Call(ctx context.Context, prompt string) (string, error) {
+func (c *TestLlmClient) GenerateText(ctx context.Context, prompt string) (string, error) {
 	c.LastPrompt = prompt
 	c.PromptCount++
 	return prompt, nil
@@ -75,6 +74,14 @@ func (c *TestLlmClient) Call(ctx context.Context, prompt string) (string, error)
 func (c *TestLlmClient) Close() error {
 	c.Opened = false
 	return nil
+}
+
+func (c *TestLlmClient) EmbedText(ctx context.Context, text string) ([]float32, error) {
+	return nil, nil
+}
+
+func (c *TestLlmClient) BatchEmbedText(ctx context.Context, text []string) ([][]float32, error) {
+	return nil, nil
 }
 
 func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatHandler {
