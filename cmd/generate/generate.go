@@ -12,12 +12,10 @@ import (
 func main() {
 	args := os.Args[1:]
 
-	env := &env.ServerEnvironment{
-		PalmApiKey:           os.Getenv("PALM_KEY"),
-		DatabaseConnection:   "",
-		DatabaseUserName:     "",
-		DatabasePassword:     "",
-		ExecutionEnvironment: env.COMMANDLINE,
+	env, err := env.NewServerEnvironment(env.COMMANDLINE)
+	if err != nil {
+		fmt.Printf("ERROR: %v\n\n", err)
+		os.Exit(2)
 	}
 
 	ctx := context.Background()
