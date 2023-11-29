@@ -5,11 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Package",
+            "name": "Launch Server",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "cmd/server/server.go"
+        },
+        {
+            "name": "Launch Generate Cmd",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "cmd/generate/generate.go",
+            "args": ["What color is the sky?"]
         }
     ]
 }
