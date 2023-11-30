@@ -13,19 +13,19 @@ func TestEmptyContext(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-	environ, err := NewServerEnvironment(GOTEST)
+	environ, err := NewEnvironment(GOTEST)
 	if err != nil {
-		t.Fatal("failed to create serverenvironment")
+		t.Fatal("failed to create Environment")
 	}
 
 	ctx := NewContext(context.Background(), environ)
 
-	found := ctx.Value(ServerEnvironmentKey)
+	found := ctx.Value(EnvironmentKey)
 	if found == nil {
 		t.Error("unable to manually find server key in context")
 	}
 
-	if se, ok := found.(*ServerEnvironment); ok == false {
+	if se, ok := found.(*Environment); ok == false {
 		t.Errorf("wrong type for serverkey, got %#v", se)
 	}
 
@@ -36,7 +36,7 @@ func TestContext(t *testing.T) {
 }
 
 func TestNewServerEnv(t *testing.T) {
-	if _, err := NewServerEnvironment(GOTEST); err != nil {
+	if _, err := NewEnvironment(GOTEST); err != nil {
 		t.Error("got error for test env")
 	}
 }

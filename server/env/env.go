@@ -16,7 +16,7 @@ const (
 	COMMANDLINE
 )
 
-type ServerEnvironment struct {
+type Environment struct {
 	PalmApiKey string
 	// Databse hostname
 	DatabaseHostname     string
@@ -26,27 +26,29 @@ type ServerEnvironment struct {
 	ExecutionEnvironment ExecutionEnvironment
 }
 
-type ServerEnvironmentKeyType int
+type EnvironmentKeyType int
 
-const ServerEnvironmentKey ServerEnvironmentKeyType = 0
+const EnvironmentKey EnvironmentKeyType = 0
 
-func NewServerEnvironment(env ExecutionEnvironment) (*ServerEnvironment, error) {
+func NewEnvironment(env ExecutionEnvironment) (*Environment, error) {
 	switch env {
 	case GOTEST:
-		return &ServerEnvironment{
+		return &Environment{
 			PalmApiKey:           os.Getenv("PALM_KEY"),
 			DatabaseHostname:     os.Getenv("PG_HOSTNAME"),
 			DatabaseUserName:     os.Getenv("PG_USERNAME"),
 			DatabasePassword:     os.Getenv("PG_PASSWORD"),
+			DatabaseDatabase:     os.Getenv("PG_DATABASE"),
 			ExecutionEnvironment: env,
 		}, nil
 
 	case COMMANDLINE:
-		return &ServerEnvironment{
+		return &Environment{
 			PalmApiKey:           os.Getenv("PALM_KEY"),
 			DatabaseHostname:     os.Getenv("PG_HOSTNAME"),
 			DatabaseUserName:     os.Getenv("PG_USERNAME"),
 			DatabasePassword:     os.Getenv("PG_PASSWORD"),
+			DatabaseDatabase:     os.Getenv("PG_DATABASE"),
 			ExecutionEnvironment: COMMANDLINE,
 		}, nil
 
@@ -55,13 +57,13 @@ func NewServerEnvironment(env ExecutionEnvironment) (*ServerEnvironment, error) 
 	}
 }
 
-func FromContext(ctx context.Context) (*ServerEnvironment, bool) {
-	o := ctx.Value(ServerEnvironmentKey)
-	e, ok := o.(*ServerEnvironment)
+func FromContext(ctx context.Context) (*Environment, bool) {
+	o := ctx.Value(EnvironmentKey)
+	e, ok := o.(*Environment)
 	return e, ok
 }
 
-func NewContext(ctx context.Context, environment *ServerEnvironment) context.Context {
-	rctx := context.WithValue(ctx, ServerEnvironmentKey, environment)
+func NewContext(ctx context.Context, environment *Environment) context.Context {
+	rctx := context.WithValue(ctx, EnvironmentKey, environment)
 	return rctx
 }

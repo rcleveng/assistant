@@ -12,7 +12,7 @@ import (
 func main() {
 	args := os.Args[1:]
 
-	env, err := env.NewServerEnvironment(env.COMMANDLINE)
+	env, err := env.NewEnvironment(env.COMMANDLINE)
 	if err != nil {
 		fmt.Printf("ERROR: %v\n\n", err)
 		os.Exit(2)

@@ -45,7 +45,7 @@ func TestGenerateText(t *testing.T) {
 	}
 
 	client := &PalmLLMClient{
-		environment: &env.ServerEnvironment{
+		environment: &env.Environment{
 			PalmApiKey:           "",
 			DatabaseHostname:     "",
 			DatabaseUserName:     "",

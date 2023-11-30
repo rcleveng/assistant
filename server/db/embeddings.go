@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	pgx "github.com/jackc/pgx/v5"
+	"github.com/pgvector/pgvector-go"
 	"github.com/rcleveng/assistant/server/env"
 )
 
@@ -27,7 +28,7 @@ INSERT INTO embeddings(
 	$1, $2, $3, NOW(), $4
 ) RETURNING id;`
 	var id int64
-	if err := emb.conn.QueryRow(emb.ctx, sql, text, 0, author, embeddings).Scan(&id); err != nil {
+	if err := emb.conn.QueryRow(emb.ctx, sql, text, 0, author, pgvector.NewVector(embeddings)).Scan(&id); err != nil {
 		return 0, err
 	}
 	return id, nil
@@ -37,9 +38,15 @@ func (emb *Embeddings) Close() {
 	emb.conn.Close(emb.ctx)
 }
 
-func NewEmbeddings(env *env.ServerEnvironment) (*Embeddings, error) {
+func NewEmbeddings(env *env.Environment) (*Embeddings, error) {
 	// urlExample := "postgres://username:password@localhost:5432/database_name"
-	url := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", env.DatabaseUserName, env.DatabasePassword, env.DatabaseHostname, 5432, env.DatabaseDatabase)
+	dbname := env.DatabaseDatabase
+	if len(dbname) == 0 {
+		dbname = "assistant"
+	}
+	dbport := 5432
+
+	url := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", env.DatabaseUserName, env.DatabasePassword, env.DatabaseHostname, dbport, dbname)
 	conn, err := pgx.Connect(context.Background(), url)
 	if err != nil {
 		return nil, err

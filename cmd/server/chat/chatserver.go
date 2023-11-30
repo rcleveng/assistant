@@ -27,7 +27,7 @@ type ChatHandler struct {
 	llm      llm.LlmClient
 }
 
-func NewChatHandler(ctx context.Context, environment *env.ServerEnvironment) *ChatHandler {
+func NewChatHandler(ctx context.Context, environment *env.Environment) *ChatHandler {
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
 		ClientID:          chatAppProject,

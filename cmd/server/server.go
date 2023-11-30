@@ -14,9 +14,9 @@ import (
 	"os"
 )
 
-// TODO - This may go away if we don't need ServerEnvironment per-request since the
+// TODO - This may go away if we don't need Environment per-request since the
 // handlers have it already.
-func addRequestEnvironment(next http.Handler, environment *env.ServerEnvironment) http.Handler {
+func addRequestEnvironment(next http.Handler, environment *env.Environment) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := env.NewContext(r.Context(), environment)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -29,7 +29,7 @@ func main() {
 	router := mux.NewRouter()
 
 	// TODO(rcleveng): Use correct environment
-	environment, err := env.NewServerEnvironment(env.GOTEST)
+	environment, err := env.NewEnvironment(env.GOTEST)
 	if err != nil {
 		log.Fatal(err)
 	}

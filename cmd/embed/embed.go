@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/golang/glog"
 	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
 	"github.com/rcleveng/assistant/server/llm"
@@ -18,12 +19,12 @@ var rootCmd = &cobra.Command{
 	Short: "Embed is a commandline to add embeddedings for text",
 	Long:  `Command to generate text embeddings`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		env, err := env.NewServerEnvironment(env.COMMANDLINE)
+		env, err := env.NewEnvironment(env.COMMANDLINE)
 		if err != nil {
 			return err
 		}
 
-		if err := embed(env, os.Args[1:]); err != nil {
+		if err := embed(env, args); err != nil {
 			return err
 		}
 
@@ -56,13 +57,15 @@ func embedAndAdd(ctx context.Context, splitter Splitter, lm llm.LlmClient, db db
 		fmt.Printf("ERROR: %v\n\n", err)
 	}
 
-	spew.Dump(resp)
+	glog.V(2).Infof("%s", spew.Sdump(resp))
 
 	for i, e := range resp {
 		author := int64(0)
 		if i < len(splits) {
-			fmt.Printf("Embedding: [%d] [%#v] '%s']\n", i, e, splits[i])
-			db.Add(author, splits[i], e)
+			glog.V(1).Infof("Embedding: [%d] [%#v] '%s']\n", i, e, splits[i])
+			if _, err := db.Add(author, splits[i], e); err != nil {
+				return err
+			}
 		} else {
 			fmt.Printf("past end of splits with i=%d\n", i)
 			fmt.Printf("Past Split Embedding: [%d] [%#v]]\n", i, e)
@@ -71,7 +74,7 @@ func embedAndAdd(ctx context.Context, splitter Splitter, lm llm.LlmClient, db db
 	return nil
 }
 
-func embed(env *env.ServerEnvironment, text []string) error {
+func embed(env *env.Environment, text []string) error {
 	ctx := context.Background()
 	llm, err := llm.NewPalmLLMClient(ctx, env)
 	if err != nil {
@@ -83,20 +86,21 @@ func embed(env *env.ServerEnvironment, text []string) error {
 	splitter.ChunkOverlap = 0
 	splitter.ChunkSize = 20
 
-	args := os.Args[1:]
 	var edb db.EmbeddingsDB
 
 	if UseDatabase {
+		fmt.Println("Using database")
 		edb, err = db.NewEmbeddings(env)
 		if err != nil {
 			return err
 		}
 	} else {
+		fmt.Println("Skipping database")
 		edb = NoopEmbeddingsDB{}
 	}
 	defer edb.Close()
 
-	if err = embedAndAdd(ctx, splitter, llm, edb, args); err != nil {
+	if err = embedAndAdd(ctx, splitter, llm, edb, text); err != nil {
 		return err
 	}
 

@@ -26,7 +26,7 @@ type Doer interface {
 
 type PalmLLMClient struct {
 	// Everything we need context wise from the environment
-	environment *env.ServerEnvironment
+	environment *env.Environment
 	// base url endpoint for this service
 	endpoint string
 	// Used to mock out HttpClient.Do
@@ -153,7 +153,7 @@ func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, texts []string) ([][
 	return embeddings, nil
 }
 
-func NewPalmLLMClient(ctx context.Context, environment *env.ServerEnvironment) (*PalmLLMClient, error) {
+func NewPalmLLMClient(ctx context.Context, environment *env.Environment) (*PalmLLMClient, error) {
 	return &PalmLLMClient{
 		environment: environment,
 		endpoint:    "https://generativelanguage.googleapis.com/v1beta3",
