@@ -89,8 +89,8 @@ func embed(env *env.Environment, text []string) error {
 	var edb db.EmbeddingsDB
 
 	if UseDatabase {
-		fmt.Println("Using database")
-		edb, err = db.NewEmbeddings(env)
+		fmt.Println("Using postgresql database")
+		edb, err = db.NewPostgresDatabase(env)
 		if err != nil {
 			return err
 		}
