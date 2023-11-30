@@ -156,11 +156,11 @@ type Embedding struct {
 type BatchEmbedTextRequest struct {
 	// Required. The free-form input text that the model will turn into an
 	// embedding.
-	Texts []string `json:"text,omitempty"`
+	Texts []string `json:"texts,omitempty"`
 }
 
 // The response to a EmbedTextRequest.
 type BatchEmbedTextResponse struct {
 	// Output only. The embedding generated from the input text.
-	Embeddings []Embedding `json:"embedding,omitempty"`
+	Embeddings []Embedding `json:"embeddings,omitempty"`
 }

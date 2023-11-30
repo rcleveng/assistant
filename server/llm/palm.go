@@ -11,18 +11,21 @@ import (
 	"github.com/rcleveng/assistant/server/env"
 )
 
+// Single Method Interfacr helper.
+// https://eli.thegreenplace.net/2023/the-power-of-single-method-interfaces-in-go/
 type DoerFunc func(*http.Request) (*http.Response, error)
 
 func (d DoerFunc) Do(r *http.Request) (*http.Response, error) {
 	return d(r)
 }
 
-// Mock helper for HTTP requests
+// Mock helper for HTTP requests (all call Do on the client)
 type Doer interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
 type PalmLLMClient struct {
+	// Everything we need context wise from the environment
 	environment *env.ServerEnvironment
 	// base url endpoint for this service
 	endpoint string
@@ -128,9 +131,6 @@ func (c *PalmLLMClient) EmbedText(ctx context.Context, text string) ([]float32, 
 	return emb, nil
 }
 
-// TODO - use the batchEmbedText endpoint that's part of v1beta3 once available in the
-// client libraries or just give up on the client libraries and call the rest apis
-// manually.
 func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, texts []string) ([][]float32, error) {
 	model := "models/embedding-gecko-001"
 	req := &BatchEmbedTextRequest{
@@ -138,7 +138,7 @@ func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, texts []string) ([][
 	}
 
 	resp := &BatchEmbedTextResponse{}
-	if err := c.Post(model, "embedText", req, resp); err != nil {
+	if err := c.Post(model, "batchEmbedText", req, resp); err != nil {
 		return nil, err
 	}
 
@@ -146,7 +146,7 @@ func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, texts []string) ([][
 		return nil, fmt.Errorf("unable to find embedding json structure")
 	}
 
-	embeddings := make([][]float32, len(texts))
+	embeddings := make([][]float32, 0, len(texts))
 	for _, emb := range resp.Embeddings {
 		embeddings = append(embeddings, emb.Value)
 	}

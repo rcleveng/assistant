@@ -17,10 +17,12 @@ const (
 )
 
 type ServerEnvironment struct {
-	PalmApiKey           string
-	DatabaseConnection   string
+	PalmApiKey string
+	// Databse hostname
+	DatabaseHostname     string
 	DatabaseUserName     string
 	DatabasePassword     string
+	DatabaseDatabase     string
 	ExecutionEnvironment ExecutionEnvironment
 }
 
@@ -33,7 +35,7 @@ func NewServerEnvironment(env ExecutionEnvironment) (*ServerEnvironment, error) 
 	case GOTEST:
 		return &ServerEnvironment{
 			PalmApiKey:           os.Getenv("PALM_KEY"),
-			DatabaseConnection:   os.Getenv("PG_URL"),
+			DatabaseHostname:     os.Getenv("PG_HOSTNAME"),
 			DatabaseUserName:     os.Getenv("PG_USERNAME"),
 			DatabasePassword:     os.Getenv("PG_PASSWORD"),
 			ExecutionEnvironment: env,
@@ -42,7 +44,7 @@ func NewServerEnvironment(env ExecutionEnvironment) (*ServerEnvironment, error) 
 	case COMMANDLINE:
 		return &ServerEnvironment{
 			PalmApiKey:           os.Getenv("PALM_KEY"),
-			DatabaseConnection:   os.Getenv("PG_URL"),
+			DatabaseHostname:     os.Getenv("PG_HOSTNAME"),
 			DatabaseUserName:     os.Getenv("PG_USERNAME"),
 			DatabasePassword:     os.Getenv("PG_PASSWORD"),
 			ExecutionEnvironment: COMMANDLINE,
