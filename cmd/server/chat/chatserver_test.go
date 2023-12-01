@@ -140,7 +140,7 @@ func TestSmoke(t *testing.T) {
 	response := httptest.NewRecorder()
 
 	handler := NewChatHandlerForTest(&keySet, &llm)
-	handler.HandleRequest(response, request)
+	handler.HandleChatApp(response, request)
 
 	if llm.LastPrompt != "Hello World" {
 		t.Errorf("Expected prompt to be Hello World, got %s", llm.LastPrompt)

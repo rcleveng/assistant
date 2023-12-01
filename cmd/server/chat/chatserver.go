@@ -159,7 +159,45 @@ func (handler *ChatHandler) DebugCard(w http.ResponseWriter, r *http.Request) {
 	server.EncodeAndLogResponse(resp, w)
 }
 
-func (handler *ChatHandler) HandleRequest(w http.ResponseWriter, r *http.Request) {
+func (handler *ChatHandler) handleChat(w http.ResponseWriter, r *http.Request, name, sessionId, text string) (string, error) {
+	ctx := r.Context()
+	text, err := handler.llm.GenerateText(ctx, text)
+	if err != nil {
+		return "", err
+	}
+	return text, nil
+}
+
+type BasicChat struct {
+	Name string `json:"name,omitempty"`
+	Text string `json:"text,omitempty"`
+}
+
+func (handler *ChatHandler) HandleChatBasic(w http.ResponseWriter, r *http.Request) {
+	uri := server.GetPublicEndpoint(r)
+	log.Default().Println("HandleChatBasic URI: " + uri)
+
+	req := &BasicChat{}
+	json.NewDecoder(r.Body).Decode(&req)
+	fmt.Printf("Decoded Message: %#v", req)
+
+	sessionId := "0"
+	text, err := handler.handleChat(w, r, req.Name, sessionId, req.Text)
+	if err != nil {
+		log.Default().Println("Error: " + err.Error())
+		server.EncodeAndLogResponse(&pb.Message{
+			Text: "Error: " + err.Error(),
+		}, w)
+		return
+	}
+
+	server.EncodeAndLogResponse(&pb.Message{
+		Text: text,
+	}, w)
+
+}
+
+func (handler *ChatHandler) HandleChatApp(w http.ResponseWriter, r *http.Request) {
 	uri := server.GetPublicEndpoint(r)
 	log.Default().Println("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
@@ -192,19 +230,25 @@ func (handler *ChatHandler) HandleRequest(w http.ResponseWriter, r *http.Request
 	name := req.Message.Sender.DisplayName
 	_, originalText, _ := strings.Cut(req.Message.Text, " ")
 
-	text, err := handler.llm.GenerateText(ctx, originalText)
+	// todo - make a real session id
+	sessionId := "0"
+
+	text, err := handler.handleChat(w, r, name, sessionId, originalText)
 	if err != nil {
 		log.Default().Println("Error: " + err.Error())
-		text = fmt.Sprintf(`Error getting LLM, so: Hello '%s', you said '%s'`, name, originalText)
+		server.EncodeAndLogResponse(&pb.Message{
+			Text: "Error creating Card",
+		}, w)
+		return
 	}
 
-	sessionId := "0" // TODO
 	resp, err := CreateResponseCard("ChatResponseCard", sessionId, text, uri)
 	if err != nil {
 		log.Default().Println("Error: " + err.Error())
-		resp = &pb.Message{
+		server.EncodeAndLogResponse(&pb.Message{
 			Text: "Error creating Card",
-		}
+		}, w)
+		return
 	}
 
 	server.EncodeAndLogResponse(resp, w)

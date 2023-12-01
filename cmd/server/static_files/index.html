@@ -1,0 +1,36 @@
+<html>
+<head>
+    <title>Debug Chat</title>
+
+    <script>
+        function chat() {
+            //alert("chat")
+        let text = document.getElementById('tfChat').value
+        const response = fetch("http://localhost:8080/chat/basic", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Rob",
+        text: text,
+      }),
+      headers: {
+        "Content-type": "application/json; charset=UTF-8"
+      }
+    }).then(response => response.text())
+        .then(data => { document.getElementById('response').innerHTML = data; });
+}
+    </script>
+    </head>
+<body>
+<div id="response">
+
+</div>
+<div id="prompt">
+    <form id="form" onsubmit="return setAction(this)">                                       
+        <textarea id="tfChat" name="prompt" cols="30" rows="10" placeholder="Your prompt..." required></textarea>
+        <br/>
+        <button id="btnChat" action="#" onclick="event.preventDefault();  chat();">Chat</button>
+    </form>
+</div>
+
+</body> 
+</html>
