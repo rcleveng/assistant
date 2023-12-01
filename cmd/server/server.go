@@ -37,10 +37,16 @@ func main() {
 
 	chatHandler := chat.NewChatHandler(ctx, environment)
 	defer chatHandler.Close()
+	feedbackHandler := chat.FeedbackHandler{}
 
 	router.HandleFunc("/docs", docs.DocsHandler).Methods(http.MethodPost, http.MethodGet)
 	router.HandleFunc("/authorizeFile", docs.AuthFileHandler).Methods(http.MethodPost, http.MethodGet)
-	router.HandleFunc("/chat", chatHandler.HandleRequest).Methods(http.MethodPost, http.MethodGet)
+	router.HandleFunc("/chat", chatHandler.HandleRequest).Methods(http.MethodPost)
+	router.HandleFunc("/debug/card", chatHandler.DebugCard).Methods(http.MethodGet)
+	router.HandleFunc("/feedback/{type}/{id}", feedbackHandler.HandleFeedback).Methods(http.MethodPost)
+	router.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte{'o', 'k', '\n'})
+	})
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")

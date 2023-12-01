@@ -1,4 +1,3 @@
-// Sample run-helloworld is a minimal Cloud Run service.
 package chat
 
 import (
@@ -70,6 +69,96 @@ func (handler *ChatHandler) validateChatToken(context context.Context, tokenStri
 
 // CHAT
 
+func CreateResponseCard(cardId, sessionId, text, uri string) (*pb.Message, error) {
+	button := pb.GoogleAppsCardV1Button{
+		Text: "Learn More",
+		OnClick: &pb.GoogleAppsCardV1OnClick{
+			OpenLink: &pb.GoogleAppsCardV1OpenLink{
+				Url: uri + "/chat/action/12344",
+			},
+		},
+	}
+	// <a href="https://www.flaticon.com/free-icons/thumbs-down" title="thumbs down icons">Thumbs down icons created by Freepik - Flaticon</a>
+
+	thumbsUpButton := pb.GoogleAppsCardV1Button{
+		Icon: &pb.GoogleAppsCardV1Icon{
+			AltText:   "Thumbs Up",
+			IconUrl:   "https://storage.cloud.google.com/robsite-assistant-public/thumb-up.png",
+			ImageType: "SQUARE",
+		},
+		//Text: "Thumbs Up",
+		OnClick: &pb.GoogleAppsCardV1OnClick{
+			OpenLink: &pb.GoogleAppsCardV1OpenLink{
+				Url: fmt.Sprintf("%s/feedback/up/%s", uri, sessionId),
+			},
+		},
+	}
+	thumbsDownButton := pb.GoogleAppsCardV1Button{
+		//Text: "Thumbs Down",
+		Icon: &pb.GoogleAppsCardV1Icon{
+			AltText:   "Thumbs Down",
+			IconUrl:   "https://storage.cloud.google.com/robsite-assistant-public/thumb-down.png",
+			ImageType: "SQUARE",
+		},
+		OnClick: &pb.GoogleAppsCardV1OnClick{
+			OpenLink: &pb.GoogleAppsCardV1OpenLink{
+				Url: fmt.Sprintf("%s/feedback/down/%s", uri, sessionId),
+			},
+		},
+	}
+	card := &pb.CardWithId{
+		Card: &pb.GoogleAppsCardV1Card{
+			Header: &pb.GoogleAppsCardV1CardHeader{
+				ImageType: "CIRCLE",
+				ImageUrl:  "https://developers.google.com/chat/images/chat-product-icon.png",
+				Subtitle:  "Created with the Robsite Assistant",
+				Title:     "Robsite Assistant Reply",
+			},
+			Sections: []*pb.GoogleAppsCardV1Section{{
+				Widgets: []*pb.GoogleAppsCardV1Widget{{
+					TextParagraph: &pb.GoogleAppsCardV1TextParagraph{
+						Text: text,
+					},
+				}, {
+					ButtonList: &pb.GoogleAppsCardV1ButtonList{
+						Buttons: []*pb.GoogleAppsCardV1Button{
+							&button, &thumbsUpButton, &thumbsDownButton},
+					},
+				}},
+			}},
+		},
+		CardId: cardId,
+	}
+
+	resp := &pb.Message{
+		//Text:    text,
+		CardsV2: []*pb.CardWithId{card},
+	}
+	return resp, nil
+}
+
+func (handler *ChatHandler) DebugCard(w http.ResponseWriter, r *http.Request) {
+	uri := server.GetPublicEndpoint(r)
+	log.Default().Println("URI: " + uri)
+	if reqText, err := httputil.DumpRequest(r, true); err == nil {
+		log.Default().Println(string(reqText))
+	}
+	r.URL.Query()
+
+	sessionId := r.URL.Query().Get("id")
+	text := r.URL.Query().Get("text")
+	if text == "" {
+		text = "This is a test"
+	}
+	resp, err := CreateResponseCard("TestCard", sessionId, text, uri)
+	if err != nil {
+		resp = &pb.Message{
+			Text: "Error creating Card",
+		}
+	}
+	server.EncodeAndLogResponse(resp, w)
+}
+
 func (handler *ChatHandler) HandleRequest(w http.ResponseWriter, r *http.Request) {
 	uri := server.GetPublicEndpoint(r)
 	log.Default().Println("URI: " + uri)
@@ -109,43 +198,16 @@ func (handler *ChatHandler) HandleRequest(w http.ResponseWriter, r *http.Request
 		text = fmt.Sprintf(`Error getting LLM, so: Hello '%s', you said '%s'`, name, originalText)
 	}
 
-	button := pb.GoogleAppsCardV1Button{
-		Text: "Sample Button",
-		OnClick: &pb.GoogleAppsCardV1OnClick{
-			OpenLink: &pb.GoogleAppsCardV1OpenLink{
-				Url: uri + "/chat/action/12344",
-			},
-		},
-	}
-	card := &pb.CardWithId{
-		Card: &pb.GoogleAppsCardV1Card{
-			Header: &pb.GoogleAppsCardV1CardHeader{
-				ImageType: "CIRCLE",
-				ImageUrl:  "https://developers.google.com/chat/images/chat-product-icon.png",
-				Subtitle:  "Created with the Robsite Assistant",
-				Title:     "Robsite Assistant Reply",
-			},
-			Sections: []*pb.GoogleAppsCardV1Section{{
-				Widgets: []*pb.GoogleAppsCardV1Widget{{
-					TextParagraph: &pb.GoogleAppsCardV1TextParagraph{
-						Text: "Ipsem Lorem",
-					},
-				}, {
-					ButtonList: &pb.GoogleAppsCardV1ButtonList{
-						Buttons: []*pb.GoogleAppsCardV1Button{&button},
-					},
-				}},
-			}},
-		},
-		CardId: "EchoCard1",
+	sessionId := "0" // TODO
+	resp, err := CreateResponseCard("ChatResponseCard", sessionId, text, uri)
+	if err != nil {
+		log.Default().Println("Error: " + err.Error())
+		resp = &pb.Message{
+			Text: "Error creating Card",
+		}
 	}
 
-	resp := pb.Message{
-		Text:    text,
-		CardsV2: []*pb.CardWithId{card},
-	}
-
-	server.EncodeAndLogResponse(&resp, w)
+	server.EncodeAndLogResponse(resp, w)
 }
 
 func (handler *ChatHandler) Close() {
