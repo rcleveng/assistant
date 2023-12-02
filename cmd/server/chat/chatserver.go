@@ -131,7 +131,6 @@ func CreateResponseCard(cardId, sessionId, text, uri string) (*pb.Message, error
 	}
 
 	resp := &pb.Message{
-		//Text:    text,
 		CardsV2: []*pb.CardWithId{card},
 	}
 	return resp, nil

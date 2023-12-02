@@ -12,14 +12,15 @@ import (
 type EmbeddingsDB interface {
 	// Adds enbeddings and text into the LLM memory
 	Add(author int64, text string, embeddings []float32) (int64, error)
+	// Finds the N closest matches
+	Find(embedding []float32, count int) ([]string, error)
+
 	Close()
 }
 
 type AuthorsDB interface {
 	// Adds an author into the author database
 	Add(author int64, email string, name string) (int64, error)
-	// Finds the N closest matches
-	Find(embedding []float32, count int) ([]string, error)
 
 	Close()
 }
@@ -48,16 +49,10 @@ INSERT INTO embeddings(
 // / TODO - we'll likely want author, text, and other metadata later, use struct
 func (emb *PostgresDatabase) Find(embedding []float32, count int) ([]string, error) {
 	// Query: SELECT content, 1 - (embedding <=> $1) AS cosine_similarity FROM embeddings ORDER BY 2 DESC
-	sql := `
-SELECT 
-	content, 1 - (embedding <=> $1) 
-	AS 
-		cosine_similarity 
-	FROM 
-		embeddings 
-	ORDER BY 
-		$2 
-	DESC;
+	sql := `SELECT content
+	FROM  embeddings 
+	ORDER BY embedding <=> $1
+	LIMIT $2;
 `
 	rows, err := emb.conn.Query(emb.ctx, sql, pgvector.NewVector(embedding), count)
 	var text string

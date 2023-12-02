@@ -1,9 +1,8 @@
-package main
+package embedcmd
 
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
@@ -14,17 +13,15 @@ import (
 	"github.com/tmc/langchaingo/textsplitter"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "embed",
-	Short: "Embed is a commandline to add embeddedings for text",
-	Long:  `Command to generate text embeddings`,
+var addCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add a new text and embedding",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		env, err := env.NewEnvironment(env.COMMANDLINE)
 		if err != nil {
 			return err
 		}
-
-		if err := embed(env, args); err != nil {
+		if err := add(env, args); err != nil {
 			return err
 		}
 
@@ -32,10 +29,44 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-var UseDatabase bool
+var author int64
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&UseDatabase, "use_database", "d", false, "Use the database")
+	RootCmd.AddCommand(addCmd)
+	addCmd.LocalFlags().Int64Var(&author, "author", 0, "sets the author's email address ")
+}
+
+func add(env *env.Environment, text []string) error {
+	ctx := context.Background()
+	llm, err := llm.NewPalmLLMClient(ctx, env)
+	if err != nil {
+		return err
+	}
+	defer llm.Close()
+
+	splitter := textsplitter.NewRecursiveCharacter()
+	splitter.ChunkOverlap = 0
+	splitter.ChunkSize = 20
+
+	var edb db.EmbeddingsDB
+
+	if UseDatabase {
+		fmt.Println("Using postgresql database")
+		edb, err = db.NewPostgresDatabase(env)
+		if err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("Skipping database")
+		edb = NoopEmbeddingsDB{}
+	}
+	defer edb.Close()
+
+	if err = embedAndAdd(ctx, splitter, llm, edb, text); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type Splitter interface {
@@ -74,51 +105,12 @@ func embedAndAdd(ctx context.Context, splitter Splitter, lm llm.LlmClient, db db
 	return nil
 }
 
-func embed(env *env.Environment, text []string) error {
-	ctx := context.Background()
-	llm, err := llm.NewPalmLLMClient(ctx, env)
-	if err != nil {
-		return err
-	}
-	defer llm.Close()
-
-	splitter := textsplitter.NewRecursiveCharacter()
-	splitter.ChunkOverlap = 0
-	splitter.ChunkSize = 20
-
-	var edb db.EmbeddingsDB
-
-	if UseDatabase {
-		fmt.Println("Using postgresql database")
-		edb, err = db.NewPostgresDatabase(env)
-		if err != nil {
-			return err
-		}
-	} else {
-		fmt.Println("Skipping database")
-		edb = NoopEmbeddingsDB{}
-	}
-	defer edb.Close()
-
-	if err = embedAndAdd(ctx, splitter, llm, edb, text); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 type NoopEmbeddingsDB struct{}
 
 func (n NoopEmbeddingsDB) Close() {}
 func (n NoopEmbeddingsDB) Add(author int64, text string, embeddings []float32) (int64, error) {
 	return 0, nil
 }
-
-func main() {
-
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
+func (n NoopEmbeddingsDB) Find(embedding []float32, count int) ([]string, error) {
+	return []string{}, nil
 }
