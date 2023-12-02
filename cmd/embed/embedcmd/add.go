@@ -58,7 +58,7 @@ func add(env *env.Environment, text []string) error {
 		}
 	} else {
 		fmt.Println("Skipping database")
-		edb = NoopEmbeddingsDB{}
+		edb = db.NoopEmbeddingsDB{}
 	}
 	defer edb.Close()
 
@@ -103,14 +103,4 @@ func embedAndAdd(ctx context.Context, splitter Splitter, lm llm.LlmClient, db db
 		}
 	}
 	return nil
-}
-
-type NoopEmbeddingsDB struct{}
-
-func (n NoopEmbeddingsDB) Close() {}
-func (n NoopEmbeddingsDB) Add(author int64, text string, embeddings []float32) (int64, error) {
-	return 0, nil
-}
-func (n NoopEmbeddingsDB) Find(embedding []float32, count int) ([]string, error) {
-	return []string{}, nil
 }

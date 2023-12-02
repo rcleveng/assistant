@@ -35,7 +35,11 @@ func main() {
 	}
 	ctx := env.NewContext(context.Background(), environment)
 
-	chatHandler := chat.NewChatHandler(ctx, environment)
+	chatHandler, err := chat.NewChatHandler(ctx, environment)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	defer chatHandler.Close()
 	feedbackHandler := chat.FeedbackHandler{}
 	fs := http.FileServer(http.Dir("./static_files/"))

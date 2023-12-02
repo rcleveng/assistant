@@ -15,6 +15,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v3"
+	"github.com/rcleveng/assistant/server/db"
 	pb "google.golang.org/api/chat/v1"
 )
 
@@ -90,7 +91,12 @@ func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatH
 		ClientID:          chatAppProject,
 	}
 	verifier := oidc.NewVerifier(chatIssuer, keySet, config)
-	return &ChatHandler{verifier, llm}
+	edb := db.NoopEmbeddingsDB{}
+	return &ChatHandler{
+		verifier: verifier,
+		llm:      llm,
+		db:       edb,
+	}
 }
 
 func createIdToken(t *testing.T, key *signingKey) string {

@@ -48,9 +48,9 @@ NEEDMORE: I need more information, please ask for what information is needed to 
 
 Use the following additional information to help answer if needed:
 CONTEXT:
-{{ CONTEXT }}
+{{ .Context}}
 
-USERQUESTION: {{ QUERY }}
+USERQUESTION: {{ .Query }}
 `
 }
 
@@ -63,7 +63,7 @@ const (
 func ChatPrompt(query string, context []string) (string, error) {
 	c := strings.Join(context, "\n")
 	return Prompt(PROMPT_CHAT, map[string]string{
-		"QUERY": query, "CONTEXT": c})
+		"Query": query, "Context": c})
 }
 
 func Prompt(id PromptId, data map[string]string) (string, error) {

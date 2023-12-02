@@ -76,13 +76,6 @@ func chat(text []string) error {
 	return nil
 }
 
-type NoopEmbeddingsDB struct{}
-
-func (n NoopEmbeddingsDB) Close() {}
-func (n NoopEmbeddingsDB) Add(author int64, text string, embeddings []float32) (int64, error) {
-	return 0, nil
-}
-
 func main() {
 
 	if err := rootCmd.Execute(); err != nil {

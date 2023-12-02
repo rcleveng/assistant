@@ -18,6 +18,16 @@ type EmbeddingsDB interface {
 	Close()
 }
 
+type NoopEmbeddingsDB struct{}
+
+func (n NoopEmbeddingsDB) Close() {}
+func (n NoopEmbeddingsDB) Add(author int64, text string, embeddings []float32) (int64, error) {
+	return 0, nil
+}
+func (n NoopEmbeddingsDB) Find(embedding []float32, count int) ([]string, error) {
+	return []string{}, nil
+}
+
 type AuthorsDB interface {
 	// Adds an author into the author database
 	Add(author int64, email string, name string) (int64, error)

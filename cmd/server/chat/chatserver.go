@@ -11,6 +11,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/rcleveng/assistant/server"
+	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
 	"github.com/rcleveng/assistant/server/llm"
 
@@ -24,9 +25,10 @@ const jwtURL = "https://www.googleapis.com/service_accounts/v1/jwk/"
 type ChatHandler struct {
 	verifier *oidc.IDTokenVerifier
 	llm      llm.LlmClient
+	db       db.EmbeddingsDB
 }
 
-func NewChatHandler(ctx context.Context, environment *env.Environment) *ChatHandler {
+func NewChatHandler(ctx context.Context, environment *env.Environment) (*ChatHandler, error) {
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
 		ClientID:          chatAppProject,
@@ -36,9 +38,19 @@ func NewChatHandler(ctx context.Context, environment *env.Environment) *ChatHand
 
 	llm, err := llm.NewPalmLLMClient(ctx, environment)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return &ChatHandler{verifier, llm}
+
+	edb, err := db.NewPostgresDatabase(environment)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ChatHandler{
+		verifier: verifier,
+		llm:      llm,
+		db:       edb,
+	}, err
 }
 
 // Validate the Chat Token
@@ -158,13 +170,67 @@ func (handler *ChatHandler) DebugCard(w http.ResponseWriter, r *http.Request) {
 	server.EncodeAndLogResponse(resp, w)
 }
 
+func (handler *ChatHandler) runChain(ctx context.Context, cmd, rest, name string) (string, error) {
+	switch cmd {
+	case "ANSWER":
+		return rest, nil
+	case "NEEDMORE":
+		// TODO - ask this as a follow up, then add the next answer to the context and
+		// retry the original question
+		return rest, nil
+	case "CALENDAR":
+		return fmt.Sprintf("I would use the calendar to look up '%s'", rest), nil
+	case "REMEMBER":
+		emb, err := handler.llm.EmbedText(ctx, rest)
+		if err != nil {
+			return rest, fmt.Errorf("error trying to remember: ")
+		}
+		_, err = handler.db.Add(0, rest, emb)
+		if err != nil {
+			return rest, fmt.Errorf("error trying to remember: ")
+		}
+		return fmt.Sprintf("I will remember that '%s'", rest), nil
+	default:
+		return cmd + " " + rest, nil
+	}
+
+}
+
 func (handler *ChatHandler) handleChat(w http.ResponseWriter, r *http.Request, name, sessionId, text string) (string, error) {
 	ctx := r.Context()
-	text, err := handler.llm.GenerateText(ctx, text)
+
+	emb, err := handler.llm.EmbedText(ctx, text)
 	if err != nil {
 		return "", err
 	}
-	return text, nil
+
+	context, err := handler.db.Find(emb, 2)
+	if err != nil {
+		context = []string{}
+	}
+
+	prompt, err := llm.ChatPrompt(text, context)
+	if err != nil {
+		fmt.Println("error generating chat prompt", err.Error())
+		prompt = text
+	}
+	responseText, err := handler.llm.GenerateText(ctx, prompt)
+	if err != nil {
+		return "", err
+	}
+
+	// TODO - process response for remembering, looking up calendar and starting chain, etc
+	cmd, rest, found := strings.Cut(responseText, " ")
+	if found && cmd[len(cmd)-1:] == ":" {
+		// we have a command
+		cmd = cmd[:len(cmd)-1]
+		responseText, err = handler.runChain(ctx, cmd, rest, name)
+		if err != nil {
+			fmt.Println("running chain failed ", err.Error())
+			return "", err
+		}
+	}
+	return responseText, nil
 }
 
 type BasicChat struct {
