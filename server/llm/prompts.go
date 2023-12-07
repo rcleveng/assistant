@@ -62,8 +62,13 @@ const (
 
 func ChatPrompt(query string, context []string) (string, error) {
 	c := strings.Join(context, "\n")
-	return Prompt(PROMPT_CHAT, map[string]string{
+	prompt, err := Prompt(PROMPT_CHAT, map[string]string{
 		"Query": query, "Context": c})
+
+	if err != nil {
+		fmt.Printf("error '%s' creating prompt for: '%s", err.Error(), query)
+	}
+	return prompt, err
 }
 
 func Prompt(id PromptId, data map[string]string) (string, error) {
@@ -78,7 +83,9 @@ func Prompt(id PromptId, data map[string]string) (string, error) {
 			return "", err
 		}
 
-		return buf.String(), nil
+		result := buf.String()
+		fmt.Printf("using chatprompt: \n%s\n===============================", result)
+		return result, nil
 	default:
 		return "", fmt.Errorf("unknown prompt id")
 	}

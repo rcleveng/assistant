@@ -45,8 +45,8 @@ func add(env *env.Environment, text []string) error {
 	defer llm.Close()
 
 	splitter := textsplitter.NewRecursiveCharacter()
-	splitter.ChunkOverlap = 0
-	splitter.ChunkSize = 20
+	splitter.ChunkOverlap = 20
+	splitter.ChunkSize = 1000
 
 	var edb db.EmbeddingsDB
 

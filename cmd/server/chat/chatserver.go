@@ -183,11 +183,11 @@ func (handler *ChatHandler) runChain(ctx context.Context, cmd, rest, name string
 	case "REMEMBER":
 		emb, err := handler.llm.EmbedText(ctx, rest)
 		if err != nil {
-			return rest, fmt.Errorf("error trying to remember: ")
+			return rest, fmt.Errorf("error trying to remember (emb): '%s'", rest)
 		}
 		_, err = handler.db.Add(0, rest, emb)
 		if err != nil {
-			return rest, fmt.Errorf("error trying to remember: ")
+			return rest, fmt.Errorf("error trying to remember (db): '%s'", rest)
 		}
 		return fmt.Sprintf("I will remember that '%s'", rest), nil
 	default:
@@ -244,7 +244,7 @@ func (handler *ChatHandler) HandleChatBasic(w http.ResponseWriter, r *http.Reque
 
 	req := &BasicChat{}
 	json.NewDecoder(r.Body).Decode(&req)
-	fmt.Printf("Decoded Message: %#v", req)
+	fmt.Printf("Decoded Message: %#v\n", req)
 
 	sessionId := "0"
 	text, err := handler.handleChat(w, r, req.Name, sessionId, req.Text)
@@ -285,7 +285,7 @@ func (handler *ChatHandler) HandleChatApp(w http.ResponseWriter, r *http.Request
 
 	req := pb.DeprecatedEvent{}
 	json.NewDecoder(r.Body).Decode(&req)
-	fmt.Printf("Decoded Message: %#v", req)
+	fmt.Printf("Decoded Message: %#v\n", req)
 
 	if req.Message == nil || req.Message.Sender == nil {
 		fmt.Println("No Message or Sender")
