@@ -2,7 +2,7 @@ steps:
 # Build the image with docker
 - name: 'gcr.io/cloud-builders/docker'
   script: |
-    docker build -t us-central1-docker.pkg.dev/robsite-assistant-prod/robsite-assistant-repo/robsite-assistant-image:latest .
+    docker build -t us-central1-docker.pkg.dev/robsite-assistant-prod/robsite-assistant-repo/robsite-assistant-image:$COMMIT_SHA .
   automapSubstitutions: true
 # Push the container image to Container Registry
 - name: 'gcr.io/cloud-builders/docker'
