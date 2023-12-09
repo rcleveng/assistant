@@ -1,11 +1,15 @@
 steps:
+# Build the image with docker
 - name: 'gcr.io/cloud-builders/docker'
   script: |
     docker build -t us-central1-docker.pkg.dev/robsite-assistant-prod/robsite-assistant-repo/robsite-assistant-image:latest .
   automapSubstitutions: true
-#
+# Push the container image to Container Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: 
+  - 'push'
+  - 'us-central1-docker.pkg.dev/robsite-assistant-prod/robsite-assistant-repo/robsite-assistant-image:$COMMIT_SHA'  
 # Deploy container image to Cloud Run
-#
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: gcloud
   args:
@@ -16,8 +20,6 @@ steps:
   - 'us-central1-docker.pkg.dev/robsite-assistant-prod/robsite-assistant-repo/robsite-assistant-image:$COMMIT_SHA'
   - '--region'
   - 'us-central1'
-#
-#
-#
+# Imaage to use 
 images:
-- 'us-central1-docker.pkg.dev/robsite-assistant-prod/robsite-assistant-repo/robsite-assistant-image:latest'
+- 'us-central1-docker.pkg.dev/robsite-assistant-prod/robsite-assistant-repo/robsite-assistant-image:$COMMIT_SHA'
