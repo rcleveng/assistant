@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/rcleveng/assistant/server"
 	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
@@ -164,9 +164,9 @@ func CreateResponseCard(cardId, sessionId, text, uri string) (*pb.Message, error
 
 func (handler *ChatHandler) DebugCard(w http.ResponseWriter, r *http.Request) {
 	uri := server.GetPublicEndpoint(r)
-	log.Default().Println("URI: " + uri)
+	slog.Info("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
-		log.Default().Println(string(reqText))
+		slog.Info("[DebugCard] Request: " + string(reqText))
 	}
 	r.URL.Query()
 
@@ -254,16 +254,16 @@ type BasicChat struct {
 
 func (handler *ChatHandler) HandleChatBasic(w http.ResponseWriter, r *http.Request) {
 	uri := server.GetPublicEndpoint(r)
-	log.Default().Println("HandleChatBasic URI: " + uri)
+	slog.Info("HandleChatBasic URI: " + uri)
 
 	req := &BasicChat{}
 	json.NewDecoder(r.Body).Decode(&req)
-	fmt.Printf("Decoded Message: %#v\n", req)
+	slog.Info(fmt.Sprint("Decoded Message: ", spew.Sdump(req)))
 
 	sessionId := "0"
 	text, err := handler.handleChat(w, r, req.Name, sessionId, req.Text)
 	if err != nil {
-		log.Default().Println("Error: " + err.Error())
+		slog.Error("Error: ", "error", err)
 		server.EncodeAndLogResponse(&pb.Message{
 			Text: "Error: " + err.Error(),
 		}, w)
@@ -278,9 +278,9 @@ func (handler *ChatHandler) HandleChatBasic(w http.ResponseWriter, r *http.Reque
 
 func (handler *ChatHandler) HandleChatApp(w http.ResponseWriter, r *http.Request) {
 	uri := server.GetPublicEndpoint(r)
-	log.Default().Println("URI: " + uri)
+	slog.Info("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
-		log.Default().Println(string(reqText))
+		slog.Info(string(reqText))
 	}
 	ctx := r.Context()
 
@@ -307,14 +307,13 @@ func (handler *ChatHandler) HandleChatApp(w http.ResponseWriter, r *http.Request
 	}
 
 	name := req.Message.Sender.DisplayName
-	_, originalText, _ := strings.Cut(req.Message.Text, " ")
 
 	// todo - make a real session id
 	sessionId := "0"
 
-	text, err := handler.handleChat(w, r, name, sessionId, originalText)
+	text, err := handler.handleChat(w, r, name, sessionId, req.Message.ArgumentText)
 	if err != nil {
-		log.Default().Println("Error: " + err.Error())
+		slog.Error("Error in handleChat: ", "error", err)
 		server.EncodeAndLogResponse(&pb.Message{
 			Text: "Error creating Card",
 		}, w)
@@ -323,7 +322,7 @@ func (handler *ChatHandler) HandleChatApp(w http.ResponseWriter, r *http.Request
 
 	resp, err := CreateResponseCard("ChatResponseCard", sessionId, text, uri)
 	if err != nil {
-		log.Default().Println("Error: " + err.Error())
+		slog.Error("Error creating card (CreateResponseCard): ", "error", err)
 		server.EncodeAndLogResponse(&pb.Message{
 			Text: "Error creating Card",
 		}, w)

@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -29,14 +30,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	ctx := env.NewContext(context.Background(), environment)
 	if environment.Platform == env.CLOUDRUN {
 		cloudRunService := os.Getenv("K_SERVICE")
-		log.Print("starting server on cloud run: " + cloudRunService)
+		slog.InfoContext(ctx, "starting server on cloud run: "+cloudRunService)
 		env.SetupCloudLogging()
 	}
 	router := mux.NewRouter()
-
-	ctx := env.NewContext(context.Background(), environment)
 
 	chatHandler, err := chat.NewChatHandler(ctx, environment)
 	if err != nil {
@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Start HTTP server.
-	log.Printf("listening on port %s", port)
+	slog.Info("listening on port " + port)
 	if err := http.ListenAndServe(":"+port, addRequestEnvironment(router, environment)); err != nil {
 		log.Fatal(err)
 	}
