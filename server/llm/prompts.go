@@ -3,10 +3,9 @@ package llm
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"strings"
 	"text/template"
-
-	"golang.org/x/exp/slog"
 )
 
 // 1st prompt: https://makersuite.google.com/app/prompts/1JtpmT6Efbsg9S-PgxTvAsMbDL_hTEo5F?pli=1
@@ -86,7 +85,7 @@ func Prompt(id PromptId, data map[string]string) (string, error) {
 		}
 
 		result := buf.String()
-		slog.Info("using chatprompt: \n%s\n===============================", result)
+		slog.Info(fmt.Sprintf("using chatprompt: \n%s\n===============================", result))
 		return result, nil
 	default:
 		return "", fmt.Errorf("unknown prompt id")
