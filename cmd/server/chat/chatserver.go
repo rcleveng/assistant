@@ -7,9 +7,11 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/golang/glog"
 	"github.com/rcleveng/assistant/server"
 	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
@@ -18,20 +20,29 @@ import (
 	pb "google.golang.org/api/chat/v1"
 )
 
-const chatAppProject = "1007744422436"
+const defaultChatAppProject = "1007744422436"
 const chatIssuer = "chat@system.gserviceaccount.com"
 const jwtURL = "https://www.googleapis.com/service_accounts/v1/jwk/"
 
 type ChatHandler struct {
-	verifier *oidc.IDTokenVerifier
-	llm      llm.LlmClient
-	db       db.EmbeddingsDB
+	verifier  *oidc.IDTokenVerifier
+	llm       llm.LlmClient
+	db        db.EmbeddingsDB
+	projectID string
 }
 
 func NewChatHandler(ctx context.Context, environment *env.Environment) (*ChatHandler, error) {
+	// TODO: query the metadata server if we're on cloud run.
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+	if projectID == "" {
+		projectID = defaultChatAppProject
+	}
+
+	log.Default().Println("Using Cloud Project ID: " + projectID)
+
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
-		ClientID:          chatAppProject,
+		ClientID:          projectID,
 	}
 	ks := oidc.NewRemoteKeySet(ctx, jwtURL+chatIssuer)
 	verifier := oidc.NewVerifier(chatIssuer, ks, config)
@@ -47,18 +58,20 @@ func NewChatHandler(ctx context.Context, environment *env.Environment) (*ChatHan
 	}
 
 	return &ChatHandler{
-		verifier: verifier,
-		llm:      llm,
-		db:       edb,
+		verifier:  verifier,
+		llm:       llm,
+		db:        edb,
+		projectID: projectID,
 	}, err
 }
 
 // Validate the Chat Token
 
-func (handler *ChatHandler) validateChatToken(context context.Context, tokenString string, chatAppProject string) error {
+func (handler *ChatHandler) validateChatToken(context context.Context, tokenString string) error {
 
 	payload, err := handler.verifier.Verify(context, tokenString)
 	if err != nil {
+		glog.Errorln("handler.verifier.Verify failed: " + err.Error())
 		return err
 	}
 	var claims struct {
@@ -66,11 +79,12 @@ func (handler *ChatHandler) validateChatToken(context context.Context, tokenStri
 		Iss string `json:"iss"`
 	}
 	if err := payload.Claims(&claims); err != nil {
+		glog.Errorln("payload.Claims failed: " + err.Error())
 		return err
 	}
 
 	fmt.Printf("\n\nAud: %s; Iss: %s\n\n", claims.Aud, claims.Iss)
-	if claims.Aud != chatAppProject {
+	if claims.Aud != handler.projectID {
 		return fmt.Errorf("audience was not the correct chat project, got '%s'", claims.Aud)
 	}
 	if claims.Iss != chatIssuer {
@@ -272,7 +286,7 @@ func (handler *ChatHandler) HandleChatApp(w http.ResponseWriter, r *http.Request
 
 	if authHeader, ok := r.Header["Authorization"]; ok {
 		token := strings.Split(authHeader[0], " ")[1]
-		if err := handler.validateChatToken(ctx, token, chatAppProject); err != nil {
+		if err := handler.validateChatToken(ctx, token); err != nil {
 			fmt.Printf("Error validating Token: %v\n", err)
 			fmt.Fprintf(w, "Error validating Token: %v\n", err)
 			return

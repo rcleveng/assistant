@@ -88,7 +88,7 @@ func (c *TestLlmClient) BatchEmbedText(ctx context.Context, text []string) ([][]
 func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatHandler {
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
-		ClientID:          chatAppProject,
+		ClientID:          defaultChatAppProject,
 	}
 	verifier := oidc.NewVerifier(chatIssuer, keySet, config)
 	edb := db.NoopEmbeddingsDB{}
@@ -101,7 +101,7 @@ func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatH
 
 func createIdToken(t *testing.T, key *signingKey) string {
 	exp := time.Now().Add(time.Hour)
-	payload := []byte(fmt.Sprintf(`{ "iss": "%s", "aud": "%s", "exp": %d}`, chatIssuer, chatAppProject, exp.Unix()))
+	payload := []byte(fmt.Sprintf(`{ "iss": "%s", "aud": "%s", "exp": %d}`, chatIssuer, defaultChatAppProject, exp.Unix()))
 
 	idToken := key.sign(t, payload)
 	return idToken

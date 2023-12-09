@@ -26,6 +26,8 @@ FROM scratch
 
 # Copy the binary to the production image from the builder stage.
 COPY --from=builder /bin/server/server /app/server
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 
 # Run the web service on container startup.
 CMD ["/app/server"]
