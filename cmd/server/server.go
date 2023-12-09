@@ -24,15 +24,18 @@ func addRequestEnvironment(next http.Handler, environment *env.Environment) http
 }
 
 func main() {
-	cloudRunExecution := os.Getenv("CLOUD_RUN_EXECUTION")
-	log.Print("starting server: " + cloudRunExecution)
-	router := mux.NewRouter()
-
-	// TODO(rcleveng): Use correct environment
-	environment, err := env.NewEnvironment(env.GOTEST)
+	environment, err := env.NewEnvironment()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if environment.Platform == env.CLOUDRUN {
+		cloudRunService := os.Getenv("K_SERVICE")
+		log.Print("starting server on cloud run: " + cloudRunService)
+		env.SetupCloudLogging()
+	}
+	router := mux.NewRouter()
+
 	ctx := env.NewContext(context.Background(), environment)
 
 	chatHandler, err := chat.NewChatHandler(ctx, environment)

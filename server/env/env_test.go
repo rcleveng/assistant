@@ -13,7 +13,7 @@ func TestEmptyContext(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-	environ, err := NewEnvironment(GOTEST)
+	environ, err := NewEnvironmentForPlatform(GOTEST)
 	if err != nil {
 		t.Fatal("failed to create Environment")
 	}
@@ -36,7 +36,7 @@ func TestContext(t *testing.T) {
 }
 
 func TestNewServerEnv(t *testing.T) {
-	if _, err := NewEnvironment(GOTEST); err != nil {
+	if _, err := NewEnvironmentForPlatform(GOTEST); err != nil {
 		t.Error("got error for test env")
 	}
 }

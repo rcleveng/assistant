@@ -46,11 +46,11 @@ func TestGenerateText(t *testing.T) {
 
 	client := &PalmLLMClient{
 		environment: &env.Environment{
-			PalmApiKey:           "",
-			DatabaseHostname:     "",
-			DatabaseUserName:     "",
-			DatabasePassword:     "",
-			ExecutionEnvironment: env.GOTEST,
+			PalmApiKey:       "",
+			DatabaseHostname: "",
+			DatabaseUserName: "",
+			DatabasePassword: "",
+			Platform:         env.GOTEST,
 		},
 		endpoint: "https://generativelanguage.googleapis.com/v1beta3",
 		doer:     DoerFunc(doer),

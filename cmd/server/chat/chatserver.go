@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"os"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/golang/glog"
 	"github.com/rcleveng/assistant/server"
 	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
@@ -38,7 +38,7 @@ func NewChatHandler(ctx context.Context, environment *env.Environment) (*ChatHan
 		projectID = defaultChatAppProject
 	}
 
-	log.Default().Println("Using Cloud Project ID: " + projectID)
+	slog.Info("Using Cloud", "projectID", projectID)
 
 	config := &oidc.Config{
 		SkipClientIDCheck: true,
@@ -71,7 +71,7 @@ func (handler *ChatHandler) validateChatToken(context context.Context, tokenStri
 
 	payload, err := handler.verifier.Verify(context, tokenString)
 	if err != nil {
-		glog.Errorln("handler.verifier.Verify failed: " + err.Error())
+		slog.Error("handler.verifier.Verify failed: ", "error", err)
 		return err
 	}
 	var claims struct {
@@ -79,7 +79,7 @@ func (handler *ChatHandler) validateChatToken(context context.Context, tokenStri
 		Iss string `json:"iss"`
 	}
 	if err := payload.Claims(&claims); err != nil {
-		glog.Errorln("payload.Claims failed: " + err.Error())
+		slog.Error("payload.Claims failed: ", "error", err)
 		return err
 	}
 

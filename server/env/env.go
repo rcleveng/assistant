@@ -6,51 +6,63 @@ import (
 	"os"
 )
 
-type ExecutionEnvironment int
+type Platform int
+type DeploymentEnv int
 
 const (
-	GOTEST ExecutionEnvironment = iota
+	UNKNOWN Platform = iota
+	GOTEST
+	IDE
+	CLOUDRUN
+	COMMANDLINE
+)
+
+const (
+	DEV DeploymentEnv = iota
 	TEST
 	STAGING
-	PRODUCTION_CLOUDRUN
-	COMMANDLINE
+	PRODUCTION
 )
 
 type Environment struct {
 	PalmApiKey string
 	// Databse hostname
-	DatabaseHostname     string
-	DatabaseUserName     string
-	DatabasePassword     string
-	DatabaseDatabase     string
-	ExecutionEnvironment ExecutionEnvironment
+	DatabaseHostname string
+	DatabaseUserName string
+	DatabasePassword string
+	DatabaseDatabase string
+	Platform         Platform
 }
 
 type EnvironmentKeyType int
 
 const EnvironmentKey EnvironmentKeyType = 0
 
-func NewEnvironment(env ExecutionEnvironment) (*Environment, error) {
-	switch env {
-	case GOTEST:
-		return &Environment{
-			PalmApiKey:           os.Getenv("PALM_KEY"),
-			DatabaseHostname:     os.Getenv("PG_HOSTNAME"),
-			DatabaseUserName:     os.Getenv("PG_USERNAME"),
-			DatabasePassword:     os.Getenv("PG_PASSWORD"),
-			DatabaseDatabase:     os.Getenv("PG_DATABASE"),
-			ExecutionEnvironment: env,
-		}, nil
+var (
+	PresetPlatform Platform
+)
 
-	case COMMANDLINE:
-		return &Environment{
-			PalmApiKey:           os.Getenv("PALM_KEY"),
-			DatabaseHostname:     os.Getenv("PG_HOSTNAME"),
-			DatabaseUserName:     os.Getenv("PG_USERNAME"),
-			DatabasePassword:     os.Getenv("PG_PASSWORD"),
-			DatabaseDatabase:     os.Getenv("PG_DATABASE"),
-			ExecutionEnvironment: COMMANDLINE,
-		}, nil
+func NewEnvironment() (*Environment, error) {
+	plat, err := GuessPlatform()
+	if err != nil {
+		return nil, err
+	}
+	return NewEnvironmentForPlatform(plat)
+}
+
+func NewEnvironmentForPlatform(platform Platform) (*Environment, error) {
+	environment := &Environment{
+		PalmApiKey:       os.Getenv("PALM_KEY"),
+		DatabaseHostname: os.Getenv("PG_HOSTNAME"),
+		DatabaseUserName: os.Getenv("PG_USERNAME"),
+		DatabasePassword: os.Getenv("PG_PASSWORD"),
+		DatabaseDatabase: os.Getenv("PG_DATABASE"),
+		Platform:         platform,
+	}
+
+	switch platform {
+	case COMMANDLINE, GOTEST, CLOUDRUN, IDE:
+		return environment, nil
 
 	default:
 		return nil, fmt.Errorf("invalid environment specified")
@@ -66,4 +78,29 @@ func FromContext(ctx context.Context) (*Environment, bool) {
 func NewContext(ctx context.Context, environment *Environment) context.Context {
 	rctx := context.WithValue(ctx, EnvironmentKey, environment)
 	return rctx
+}
+
+func runningOnCloudRun() bool {
+	for _, ev := range []string{
+		"K_CONFIGURATION",
+		"K_REVISION",
+		"K_SERVICE",
+	} {
+		if os.Getenv(ev) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func GuessPlatform() (Platform, error) {
+	if PresetPlatform != UNKNOWN {
+		return PresetPlatform, nil
+	}
+
+	if runningOnCloudRun() {
+		PresetPlatform = CLOUDRUN
+		return PresetPlatform, nil
+	}
+	return GOTEST, nil
 }

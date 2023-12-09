@@ -14,7 +14,7 @@ var queryCmd = &cobra.Command{
 	Use:   "query",
 	Short: "Query the n closest matches",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		env, err := env.NewEnvironment(env.COMMANDLINE)
+		env, err := env.NewEnvironmentForPlatform(env.COMMANDLINE)
 		if err != nil {
 			return err
 		}

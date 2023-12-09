@@ -17,7 +17,7 @@ var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a new text and embedding",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		env, err := env.NewEnvironment(env.COMMANDLINE)
+		env, err := env.NewEnvironmentForPlatform(env.COMMANDLINE)
 		if err != nil {
 			return err
 		}
@@ -88,11 +88,12 @@ func embedAndAdd(ctx context.Context, splitter Splitter, lm llm.LlmClient, db db
 		fmt.Printf("ERROR: %v\n\n", err)
 	}
 
-	glog.V(2).Infof("%s", spew.Sdump(resp))
+	glog.V(2).Info(spew.Sdump(resp))
 
 	for i, e := range resp {
 		author := int64(0)
 		if i < len(splits) {
+
 			glog.V(1).Infof("Embedding: [%d] [%#v] '%s']\n", i, e, splits[i])
 			if _, err := db.Add(author, splits[i], e); err != nil {
 				return err
