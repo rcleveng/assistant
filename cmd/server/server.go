@@ -3,6 +3,9 @@ package main
 
 import (
 	"context"
+	"embed"
+	"fmt"
+	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
@@ -24,6 +27,18 @@ func addRequestEnvironment(next http.Handler, environment *env.Environment) http
 	})
 }
 
+//go:embed static_files/*
+var content embed.FS
+
+func staticFiles() (fs.FS, error) {
+	s, err := fs.Sub(content, "static_files")
+	fs.WalkDir(s, ".", func(path string, d fs.DirEntry, err error) error {
+		fmt.Println(path)
+		return nil
+	})
+	return s, err
+}
+
 func main() {
 	environment, err := env.NewEnvironment()
 	if err != nil {
@@ -36,6 +51,7 @@ func main() {
 		slog.InfoContext(ctx, "starting server on cloud run: "+cloudRunService)
 		env.SetupCloudLogging()
 	}
+
 	router := mux.NewRouter()
 
 	chatHandler, err := chat.NewChatHandler(ctx, environment)
@@ -45,20 +61,27 @@ func main() {
 
 	defer chatHandler.Close()
 	feedbackHandler := chat.FeedbackHandler{}
-	fs := http.FileServer(http.Dir("./static_files/"))
-	//router.Handle("/debug/chat/", fs)
-	router.Handle("/", fs)
 
 	router.HandleFunc("/docs", docs.DocsHandler).Methods(http.MethodPost, http.MethodGet)
 	router.HandleFunc("/authorizeFile", docs.AuthFileHandler).Methods(http.MethodPost, http.MethodGet)
 	router.HandleFunc("/chat", chatHandler.HandleChatApp).Methods(http.MethodPost)
 	router.HandleFunc("/chat/basic", chatHandler.HandleChatBasic).Methods(http.MethodPost)
 	router.HandleFunc("/debug/card", chatHandler.DebugCard).Methods(http.MethodGet)
-	router.PathPrefix("/debug/chat/").Handler(http.StripPrefix("/debug/chat/", fs))
 	router.HandleFunc("/feedback/{type}/{id}", feedbackHandler.HandleFeedback).Methods(http.MethodPost)
-	router.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte{'o', 'k', '\n'})
 	})
+	router.HandleFunc("/home", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte{'o', 'k', '\n'})
+	})
+
+	// Serve the static files off of root last since gorilla mux cares about the order
+	// where stdlib uses prefix length
+	sf, err := staticFiles()
+	if err == nil {
+		fs := http.FileServer(http.FS(sf))
+		router.PathPrefix("/").Handler(fs)
+	}
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
