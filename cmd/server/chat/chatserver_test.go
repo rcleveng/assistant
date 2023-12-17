@@ -96,6 +96,8 @@ func NewChatHandlerForTest(keySet *oidc.StaticKeySet, llm *TestLlmClient) *ChatH
 		verifier: verifier,
 		llm:      llm,
 		db:       edb,
+		// This needs to match the clientid above
+		projectID: defaultChatAppProject,
 	}
 }
 
@@ -148,7 +150,7 @@ func TestSmoke(t *testing.T) {
 	handler := NewChatHandlerForTest(&keySet, &llm)
 	handler.HandleChatApp(response, request)
 
-	if llm.LastPrompt != "Hello World" {
+	if !strings.Contains(llm.LastPrompt, "USERQUESTION: Hello World") {
 		t.Errorf("Expected prompt to be Hello World, got %s", llm.LastPrompt)
 	}
 

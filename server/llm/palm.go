@@ -55,10 +55,10 @@ func responseString(resp *genai.GenerateContentResponse) string {
 }
 
 func contentString(c *genai.Content) string {
-	var b strings.Builder
 	if c == nil || c.Parts == nil {
 		return ""
 	}
+	var b strings.Builder
 	for i, part := range c.Parts {
 		if i > 0 {
 			fmt.Fprintf(&b, ";")
@@ -69,7 +69,7 @@ func contentString(c *genai.Content) string {
 }
 
 func (c *PalmLLMClient) EmbedText(ctx context.Context, text string) ([]float32, error) {
-	em := c.client.EmbeddingModel("embedding-gecko-001")
+	em := c.client.EmbeddingModel("models/embedding-001")
 	res, err := em.EmbedContent(ctx, genai.Text(text))
 	if err != nil {
 		return nil, err

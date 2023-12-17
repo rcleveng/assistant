@@ -85,7 +85,7 @@ func (handler *ChatHandler) validateChatToken(context context.Context, tokenStri
 
 	fmt.Printf("\n\nAud: %s; Iss: %s\n\n", claims.Aud, claims.Iss)
 	if claims.Aud != handler.projectID {
-		return fmt.Errorf("audience was not the correct chat project, got '%s'", claims.Aud)
+		return fmt.Errorf("audience was not the correct chat project, got '%s' expected '%s'", claims.Aud, handler.projectID)
 	}
 	if claims.Iss != chatIssuer {
 		return fmt.Errorf("issuer was not '%s'; got: '%s'", chatIssuer, claims.Iss)
