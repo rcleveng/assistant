@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -14,7 +14,7 @@ func EncodeAndLogResponse(resp json.Marshaler, w http.ResponseWriter) error {
 	enc := json.NewEncoder(b)
 	enc.SetIndent("", "  ")
 	enc.Encode(resp)
-	log.Default().Println("Response: " + b.String())
+	slog.Info("Response: " + b.String())
 	w.Write(b.Bytes())
 	return nil
 }

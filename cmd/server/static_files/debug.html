@@ -1,5 +1,10 @@
+
+<!doctype html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
     <title>Debug Chat</title>
 
     <script>
@@ -21,14 +26,24 @@
     </script>
     </head>
 <body>
+  <h1 class="text-3xl font-bold underline">
+    Response:
+  </h1>
 <div id="response">
 
 </div>
+  <h1 class="text-3xl font-bold underline">
+    Prompt:
+  </h1>
 <div id="prompt">
     <form id="form" onsubmit="return setAction(this)">                                       
         <textarea id="tfChat" name="prompt" cols="30" rows="10" placeholder="Your prompt..." required></textarea>
         <br/>
-        <button id="btnChat" action="#" onclick="event.preventDefault();  chat();">Chat</button>
+        <button id="btnChat" 
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full
+                action="#" onclick="event.preventDefault();  chat();">
+          Chat
+        </button>        
     </form>
 </div>
 
