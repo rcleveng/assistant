@@ -2,7 +2,7 @@ package chat
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 
@@ -17,9 +17,9 @@ type FeedbackHandler struct {
 
 func (handler *FeedbackHandler) HandleFeedback(w http.ResponseWriter, r *http.Request) {
 	uri := server.GetPublicEndpoint(r)
-	log.Default().Println("URI: " + uri)
+	slog.Info("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
-		log.Default().Println(string(reqText))
+		slog.Info(string(reqText))
 	}
 
 	vars := mux.Vars(r)

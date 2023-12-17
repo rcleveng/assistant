@@ -1,11 +1,14 @@
 module github.com/rcleveng/assistant
 
-go 1.20
+go 1.21
+
+toolchain go1.21.4
 
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/golang/glog v1.1.2
+	github.com/google/generative-ai-go v0.5.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jackc/pgx/v5 v5.5.0
 	github.com/pgvector/pgvector-go v0.1.1
@@ -14,6 +17,8 @@ require (
 )
 
 require (
+	cloud.google.com/go/ai v0.3.0
+	cloud.google.com/go/longrunning v0.5.4 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -26,6 +31,8 @@ require (
 	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a // indirect
 	gitlab.com/golang-commonmark/mdurl v0.0.0-20191124015652-932350d1cb84 // indirect
 	gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f // indirect
+	golang.org/x/sync v0.5.0 // indirect
+	golang.org/x/time v0.5.0 // indirect
 )
 
 require (
@@ -49,5 +56,5 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20231127180814-3a041ad873d4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4 // indirect
 	google.golang.org/grpc v1.59.0 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
+	google.golang.org/protobuf v1.31.0
 )

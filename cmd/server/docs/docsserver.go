@@ -4,7 +4,7 @@ package docs
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 
@@ -90,9 +90,9 @@ func getURI(r *http.Request) string {
 func DocsHandler(w http.ResponseWriter, r *http.Request) {
 
 	uri := getURI(r)
-	log.Default().Println("URI: " + uri)
+	slog.Info("URI: " + uri)
 	if reqText, err := httputil.DumpRequest(r, true); err == nil {
-		log.Default().Println(string(reqText))
+		slog.Info(string(reqText))
 	}
 
 	event := apps.WorkspaceAppEvent{}

@@ -1,144 +1,126 @@
 package llm
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"net/http"
+	"log/slog"
+	"strings"
 
+	generativelanguage "cloud.google.com/go/ai/generativelanguage/apiv1"
+	pb "cloud.google.com/go/ai/generativelanguage/apiv1/generativelanguagepb"
+
+	"github.com/google/generative-ai-go/genai"
 	"github.com/rcleveng/assistant/server/env"
+	"google.golang.org/api/option"
 )
-
-// Single Method Interfacr helper.
-// https://eli.thegreenplace.net/2023/the-power-of-single-method-interfaces-in-go/
-type DoerFunc func(*http.Request) (*http.Response, error)
-
-func (d DoerFunc) Do(r *http.Request) (*http.Response, error) {
-	return d(r)
-}
-
-// Mock helper for HTTP requests (all call Do on the client)
-type Doer interface {
-	Do(*http.Request) (*http.Response, error)
-}
 
 type PalmLLMClient struct {
 	// Everything we need context wise from the environment
 	environment *env.Environment
-	// base url endpoint for this service
-	endpoint string
-	// Used to mock out HttpClient.Do
-	doer Doer
+	// client to call api
+	client    *genai.Client
+	genclient *generativelanguage.GenerativeClient
 }
 
 func (c *PalmLLMClient) Close() error {
-	return nil
-}
-
-func (c *PalmLLMClient) Do(httpMethod, model, fn string, request, response any) error {
-	url := fmt.Sprintf("%s/%s:%s", c.endpoint, model, fn)
-
-	body, err := json.Marshal(request)
-	if err != nil {
-		return err
-	}
-
-	var httpReq *http.Request = nil
-
-	switch httpMethod {
-	case http.MethodPost:
-		httpReq, err = http.NewRequest(httpMethod, url, bytes.NewReader(body))
-		if err != nil {
-			return err
-		}
-
-	default:
-		return fmt.Errorf("unsupported method: %s", httpMethod)
-	}
-	httpReq.Header.Add("x-goog-api-key", c.environment.PalmApiKey)
-	httpClient := c.doer
-	if httpClient == nil {
-		// Duck typing FTW
-		httpClient = http.DefaultClient
-	}
-	res, err := httpClient.Do(httpReq)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	b, err := io.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	if res.StatusCode != 200 {
-		// We have an error here. TODO- Parse error status
-		return fmt.Errorf("returned HTTP error %d : %s", res.StatusCode, string(b))
-	}
-
-	if err = json.Unmarshal(b, &response); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *PalmLLMClient) Post(model, fn string, request, response any) error {
-	return c.Do(http.MethodPost, model, fn, request, response)
+	err := c.client.Close()
+	err2 := c.genclient.Close()
+	return errors.Join(err, err2)
 }
 
 func (c *PalmLLMClient) GenerateText(ctx context.Context, prompt string) (string, error) {
-
-	req := &GenerateTextRequest{
-		Prompt: &TextPrompt{
-			Text: prompt,
-		},
-	}
-
-	model := "models/text-bison-001"
-	resp := &GenerateTextResponse{}
-
-	if err := c.Post(model, "generateText", req, resp); err != nil {
+	em := c.client.GenerativeModel("gemini-pro")
+	resp, err := em.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
 		return "", err
 	}
 
 	if len(resp.Candidates) > 0 {
-		s := resp.Candidates[0].Output
+		s := responseString(resp)
 		return s, nil
 	}
 	return "", fmt.Errorf("no candidate response, just %#v", resp)
 }
 
-func (c *PalmLLMClient) EmbedText(ctx context.Context, text string) ([]float32, error) {
-	model := "models/embedding-gecko-001"
-	req := &EmbedTextRequest{
-		Text: text,
+func responseString(resp *genai.GenerateContentResponse) string {
+	var b strings.Builder
+	for i, cand := range resp.Candidates {
+		if len(resp.Candidates) > 1 {
+			fmt.Fprintf(&b, "%d:", i+1)
+		}
+		b.WriteString(contentString(cand.Content))
 	}
+	return b.String()
+}
 
-	resp := &EmbedTextResponse{}
-	if err := c.Post(model, "embedText", req, resp); err != nil {
+func contentString(c *genai.Content) string {
+	var b strings.Builder
+	if c == nil || c.Parts == nil {
+		return ""
+	}
+	for i, part := range c.Parts {
+		if i > 0 {
+			fmt.Fprintf(&b, ";")
+		}
+		fmt.Fprintf(&b, "%v", part)
+	}
+	return b.String()
+}
+
+func (c *PalmLLMClient) EmbedText(ctx context.Context, text string) ([]float32, error) {
+	em := c.client.EmbeddingModel("embedding-gecko-001")
+	res, err := em.EmbedContent(ctx, genai.Text(text))
+	if err != nil {
 		return nil, err
 	}
-
-	if resp.Embedding == nil {
-		return nil, fmt.Errorf("unable to find embedding json structure")
+	if res == nil || res.Embedding == nil || len(res.Embedding.Values) < 10 {
+		return nil, fmt.Errorf("empty embeddings returned")
 	}
 
-	emb := resp.Embedding.Value
-	return emb, nil
+	return res.Embedding.Values, nil
+}
+func toContent(parts []string) *pb.Content {
+	p := make([]*pb.Part, len(parts))
+	for i, e := range parts {
+		p[i] = &pb.Part{
+			Data: &pb.Part_Text{
+				Text: e,
+			},
+		}
+	}
+	return &pb.Content{Role: "user", Parts: p}
+}
+
+func (c *PalmLLMClient) batchEmbedContentWithTitle(ctx context.Context, title string, texts []string) (*pb.BatchEmbedContentsResponse, error) {
+	reqs := make([]*pb.EmbedContentRequest, len(texts))
+	taskType := pb.TaskType(genai.TaskTypeUnspecified)
+
+	for i, e := range texts {
+		slog.InfoContext(ctx, "Adding emb batch", "i", i, "e", e)
+		reqs[i] = &pb.EmbedContentRequest{
+			Model: "models/embedding-001",
+			// TODO - support multiple parts per embedding
+			Content:  toContent([]string{e}),
+			TaskType: &taskType,
+			Title:    &title,
+		}
+	}
+
+	req := &pb.BatchEmbedContentsRequest{
+		Model:    "models/embedding-001",
+		Requests: reqs,
+	}
+	res, err := c.genclient.BatchEmbedContents(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, texts []string) ([][]float32, error) {
-	model := "models/embedding-gecko-001"
-	req := &BatchEmbedTextRequest{
-		Texts: texts,
-	}
-
-	resp := &BatchEmbedTextResponse{}
-	if err := c.Post(model, "batchEmbedText", req, resp); err != nil {
+	resp, err := c.batchEmbedContentWithTitle(ctx, "", texts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -148,14 +130,27 @@ func (c *PalmLLMClient) BatchEmbedText(ctx context.Context, texts []string) ([][
 
 	embeddings := make([][]float32, 0, len(texts))
 	for _, emb := range resp.Embeddings {
-		embeddings = append(embeddings, emb.Value)
+		embeddings = append(embeddings, emb.Values)
 	}
 	return embeddings, nil
 }
 
-func NewPalmLLMClient(ctx context.Context, environment *env.Environment) (*PalmLLMClient, error) {
+func NewPalmLLMClient(ctx context.Context, environment *env.Environment, opts ...option.ClientOption) (*PalmLLMClient, error) {
+	allopts := append([]option.ClientOption{option.WithAPIKey(environment.PalmApiKey)}, opts...)
+	client, err := genai.NewClient(ctx, allopts...)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO - remove this once the go client supports the batchEmbeddings
+	genclient, err := generativelanguage.NewGenerativeRESTClient(ctx, allopts...)
+	if err != nil {
+		return nil, err
+	}
+
 	return &PalmLLMClient{
 		environment: environment,
-		endpoint:    "https://generativelanguage.googleapis.com/v1beta3",
+		client:      client,
+		genclient:   genclient,
 	}, nil
 }
