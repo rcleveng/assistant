@@ -14,6 +14,7 @@ import (
 	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
 	"github.com/rcleveng/assistant/server/llm"
+	"github.com/rcleveng/assistant/server/llm/palm"
 
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -43,7 +44,7 @@ func NewSlackHandler(ctx context.Context, environment *env.Environment, router *
 
 	slog.Info("NewSlackHandler: Using Cloud", "projectID", projectID)
 
-	llm, err := llm.NewPalmLLMClient(ctx, environment)
+	llm, err := palm.NewPalmLLMClient(ctx, environment)
 	if err != nil {
 		return nil, err
 	}
