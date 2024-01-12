@@ -4,16 +4,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rcleveng/assistant/server"
 	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
 	"github.com/rcleveng/assistant/server/llm"
+	"github.com/rcleveng/assistant/server/llm/kernel"
 	"github.com/rcleveng/assistant/server/llm/palm"
 
 	"github.com/slack-go/slack"
@@ -33,6 +36,7 @@ type SlackHandler struct {
 	clientSecret  string
 	signingSecret string
 	projectID     string
+	kernel        kernel.Kernel
 }
 
 func NewSlackHandler(ctx context.Context, environment *env.Environment, router *mux.Router) (*SlackHandler, error) {
@@ -54,7 +58,12 @@ func NewSlackHandler(ctx context.Context, environment *env.Environment, router *
 		return nil, err
 	}
 
-	api := slack.New(environment.SlackBotOAuthToken)
+	api := slack.New(environment.SlackBotOAuthToken, slack.OptionDebug(true))
+
+	kernel, err := kernel.NewHandRolledKernel(ctx, environment)
+	if err != nil {
+		return nil, err
+	}
 
 	handler := &SlackHandler{
 		llm:           llm,
@@ -64,6 +73,7 @@ func NewSlackHandler(ctx context.Context, environment *env.Environment, router *
 		clientId:      environment.SlackClientID,
 		clientSecret:  environment.SlackClientSecret,
 		signingSecret: environment.SlackSigningSecret,
+		kernel:        kernel,
 	}
 
 	// TODO - remove GET from these
@@ -95,10 +105,44 @@ func (handler *SlackHandler) slashHelp(w http.ResponseWriter, r *http.Request) {
 	slog.InfoContext(ctx, "SlackHandler:slashHelp", "request", prettyJSON.String())
 }
 
+func (handler *SlackHandler) handleAppMentionEvent(ctx context.Context, ev slackevents.AppMentionEvent) {
+	text := ev.Text
+	if _, rest, found := strings.Cut(text, "> "); found {
+		text = rest
+	}
+
+	response, err := handler.kernel.Chat(ctx, ev.User, ev.EventTimeStamp, text)
+	if err != nil {
+		msg := fmt.Sprintf("Error: %v", err.Error())
+		handler.api.PostMessage(ev.Channel, slack.MsgOptionText(msg, true))
+		return
+	}
+	channel, ts, err := handler.api.PostMessage(ev.Channel, slack.MsgOptionText(response, false))
+	if err != nil {
+		slog.ErrorContext(ctx, "error posting message to channel", "err", err)
+		return
+	}
+	slog.InfoContext(ctx, "posted message", "channel", channel, "timestamp", ts, "response", response)
+}
+
+func (handler *SlackHandler) handleURLVerification(ctx context.Context, w http.ResponseWriter, body []byte) {
+	var r *slackevents.ChallengeResponse
+	if err := json.Unmarshal(body, &r); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		slog.ErrorContext(ctx, "SlackHandler:actionEndpoint error Unmarshal event", "error", "StatusInternalServerError")
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(r.Challenge))
+	slog.InfoContext(ctx, "Responded with Challenge")
+}
+
 func (handler *SlackHandler) actionEndpoint(w http.ResponseWriter, r *http.Request) {
 	// TODO publish help
 
-	ctx := r.Context()
+	// ctx := r.Context()
+	// See if this fixes the cancelled errors
+	ctx := context.Background()
 	uri := server.GetPublicEndpoint(r)
 	slog.InfoContext(ctx, "SlackHandler:actionEndpoint called", "URI", uri)
 
@@ -125,13 +169,7 @@ func (handler *SlackHandler) actionEndpoint(w http.ResponseWriter, r *http.Reque
 	// 	return
 	// }
 
-	// Debug log full request
-	var prettyJSON bytes.Buffer
-	if err = json.Indent(&prettyJSON, body, "", "\t"); err != nil {
-		slog.ErrorContext(ctx, "JSON parse error", "error", err)
-		return
-	}
-	slog.InfoContext(ctx, "SlackHandler:actionEndpoint", "request", prettyJSON.String())
+	slog.InfoContext(ctx, "SlackHandler:actionEndpoint", "request", string(body))
 
 	// TODO - verify token here?
 	eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionNoVerifyToken())
@@ -141,32 +179,18 @@ func (handler *SlackHandler) actionEndpoint(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if eventsAPIEvent.Type == slackevents.URLVerification {
-		var r *slackevents.ChallengeResponse
-		err := json.Unmarshal([]byte(body), &r)
-		if err != nil {
-			slog.ErrorContext(ctx, "SlackHandler:actionEndpoint error Unmarshal event", "error", "StatusInternalServerError")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text")
-		slog.InfoContext(ctx, "Responded with Challenge")
-		w.Write([]byte(r.Challenge))
-	}
-	if eventsAPIEvent.Type == slackevents.CallbackEvent {
-		slog.InfoContext(ctx, "Received CallbackEvent")
-		innerEvent := eventsAPIEvent.InnerEvent
-		switch ev := innerEvent.Data.(type) {
+	slog.InfoContext(ctx, "Event type: "+eventsAPIEvent.Type)
+	switch eventsAPIEvent.Type {
+	case slackevents.URLVerification:
+		handler.handleURLVerification(ctx, w, body)
+	case slackevents.CallbackEvent:
+		switch ev := eventsAPIEvent.InnerEvent.Data.(type) {
 		case *slackevents.AppMentionEvent:
-			channel, ts, err := handler.api.PostMessage(ev.Channel, slack.MsgOptionText("Yes, hello.", false))
-			if err == nil {
-				slog.InfoContext(ctx, "posted message", "channel", channel, "timestamp", ts)
-			} else {
-				slog.ErrorContext(ctx, "error posting message to channel", "err", err)
-			}
+			go handler.handleAppMentionEvent(ctx, *ev)
 		default:
 			slog.InfoContext(ctx, "unhandled event type", "ev", ev)
 		}
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
