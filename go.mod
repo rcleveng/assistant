@@ -16,7 +16,10 @@ require (
 	github.com/tmc/langchaingo v0.0.0-20231125195403-51a3a0a0f54a
 )
 
-require github.com/felixge/httpsnoop v1.0.3 // indirect
+require (
+	github.com/felixge/httpsnoop v1.0.3 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
+)
 
 require (
 	cloud.google.com/go/ai v0.3.0
@@ -47,6 +50,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/gorilla/handlers v1.5.2
+	github.com/slack-go/slack v0.12.3
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/net v0.19.0 // indirect

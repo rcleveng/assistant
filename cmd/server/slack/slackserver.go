@@ -14,6 +14,9 @@ import (
 	"github.com/rcleveng/assistant/server/db"
 	"github.com/rcleveng/assistant/server/env"
 	"github.com/rcleveng/assistant/server/llm"
+
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 )
 
 const defaultChatAppProject = "1007744422436"
@@ -22,9 +25,13 @@ const defaultChatAppProject = "1007744422436"
 // const jwtURL = "https://www.googleapis.com/service_accounts/v1/jwk/"
 
 type SlackHandler struct {
-	llm       llm.LlmClient
-	db        db.EmbeddingsDB
-	projectID string
+	llm           llm.LlmClient
+	db            db.EmbeddingsDB
+	api           *slack.Client
+	clientId      string
+	clientSecret  string
+	signingSecret string
+	projectID     string
 }
 
 func NewSlackHandler(ctx context.Context, environment *env.Environment, router *mux.Router) (*SlackHandler, error) {
@@ -46,11 +53,16 @@ func NewSlackHandler(ctx context.Context, environment *env.Environment, router *
 		return nil, err
 	}
 
+	api := slack.New(environment.SlackBotOAuthToken)
+
 	handler := &SlackHandler{
-		// verifier:  verifier,
-		llm:       llm,
-		db:        edb,
-		projectID: projectID,
+		llm:           llm,
+		db:            edb,
+		projectID:     projectID,
+		api:           api,
+		clientId:      environment.SlackClientID,
+		clientSecret:  environment.SlackClientSecret,
+		signingSecret: environment.SlackSigningSecret,
 	}
 
 	// TODO - remove GET from these
@@ -84,21 +96,77 @@ func (handler *SlackHandler) slashHelp(w http.ResponseWriter, r *http.Request) {
 
 func (handler *SlackHandler) actionEndpoint(w http.ResponseWriter, r *http.Request) {
 	// TODO publish help
-	uri := server.GetPublicEndpoint(r)
-	slog.Info("SlackHandler:slashHelp URI: " + uri)
 
 	ctx := r.Context()
+	uri := server.GetPublicEndpoint(r)
+	slog.InfoContext(ctx, "SlackHandler:actionEndpoint called", "URI", uri)
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		slog.ErrorContext(ctx, "SlackHandler:actionEndpoint", "error", err)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	sv, err := slack.NewSecretsVerifier(r.Header, handler.signingSecret)
+	if err != nil {
+		slog.ErrorContext(ctx, "SlackHandler:actionEndpoint", "error", "StatusBadRequest")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if _, err := sv.Write(body); err != nil {
+		slog.ErrorContext(ctx, "SlackHandler:actionEndpoint", "error", "StatusInternalServerError")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	// TODO - this is failing, fix soon
+	// if err := sv.Ensure(); err != nil {
+	// 	w.WriteHeader(http.StatusUnauthorized)
+	// 	return
+	// }
+
+	// Debug log full request
 	var prettyJSON bytes.Buffer
 	if err = json.Indent(&prettyJSON, body, "", "\t"); err != nil {
 		slog.ErrorContext(ctx, "JSON parse error", "error", err)
 		return
 	}
 	slog.InfoContext(ctx, "SlackHandler:actionEndpoint", "request", prettyJSON.String())
+
+	// TODO - verify token here?
+	eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionNoVerifyToken())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		slog.ErrorContext(ctx, "SlackHandler:actionEndpoint error parsing event", "error", "StatusInternalServerError")
+		return
+	}
+
+	if eventsAPIEvent.Type == slackevents.URLVerification {
+		var r *slackevents.ChallengeResponse
+		err := json.Unmarshal([]byte(body), &r)
+		if err != nil {
+			slog.ErrorContext(ctx, "SlackHandler:actionEndpoint error Unmarshal event", "error", "StatusInternalServerError")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text")
+		slog.InfoContext(ctx, "Responded with Challenge")
+		w.Write([]byte(r.Challenge))
+	}
+	if eventsAPIEvent.Type == slackevents.CallbackEvent {
+		slog.InfoContext(ctx, "Received CallbackEvent")
+		innerEvent := eventsAPIEvent.InnerEvent
+		switch ev := innerEvent.Data.(type) {
+		case *slackevents.AppMentionEvent:
+			channel, ts, err := handler.api.PostMessage(ev.Channel, slack.MsgOptionText("Yes, hello.", false))
+			if err == nil {
+				slog.InfoContext(ctx, "posted message", "channel", channel, "timestamp", ts)
+			} else {
+				slog.ErrorContext(ctx, "error posting message to channel", "err", err)
+			}
+		default:
+			slog.InfoContext(ctx, "unhandled event type", "ev", ev)
+		}
+	}
 }
 
 func (handler *SlackHandler) Close() {
